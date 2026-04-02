@@ -90,7 +90,15 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { 
+  getFirestore, 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  getDoc 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSy...",
@@ -106,45 +114,47 @@ let lastNama = "";
 let userStatus = {};
 let userMap = {};
 
-// 🔹 LOAD USER
-async function loadUser() {
-  const snapshot = await getDocs(collection(db, "registrasi"));
-  const select = document.getElementById("userSelect");
+const select = document.getElementById("userSelect");
 
-  select.innerHTML = '<option value="">-- Pilih Nama --</option>';
+// 🔥 REALTIME USER
+function loadUserRealtime() {
+  onSnapshot(collection(db, "registrasi"), async (snapshot) => {
 
-  for (const docSnap of snapshot.docs) {
-    const id = docSnap.id;
-    const nama = docSnap.data().nama;
+    select.innerHTML = '<option value="">-- Pilih Nama --</option>';
 
-    userMap[id] = nama;
+    for (const docSnap of snapshot.docs) {
+      const id = docSnap.id;
+      const nama = docSnap.data().nama;
 
-    const kuponSnap = await getDoc(doc(db, "kupon", id));
-    let sudah = false;
+      userMap[id] = nama;
 
-    if (kuponSnap.exists()) {
-      const data = kuponSnap.data();
-      sudah = Object.values(data).every(v => v === true);
+      const kuponSnap = await getDoc(doc(db, "kupon", id));
+      let sudah = false;
+
+      if (kuponSnap.exists()) {
+        const data = kuponSnap.data();
+        sudah = Object.values(data).every(v => v === true);
+      }
+
+      userStatus[id] = sudah;
+
+      const option = document.createElement("option");
+      option.value = id;
+      option.text = nama;
+
+      if (sudah) {
+        option.text += " (SUDAH)";
+        option.classList.add("sudah");
+        option.disabled = true;
+      }
+
+      select.appendChild(option);
     }
-
-    userStatus[id] = sudah;
-
-    const option = document.createElement("option");
-    option.value = id;
-    option.text = nama;
-
-    if (sudah) {
-      option.text += " (SUDAH)";
-      option.classList.add("sudah");
-      option.disabled = true; // 🔴 langsung tidak bisa dipilih
-    }
-
-    select.appendChild(option);
-  }
+  });
 }
 
-// 🔹 VALIDASI PILIH USER
-document.getElementById("userSelect").addEventListener("change", function() {
+// 🔹 VALIDASI PILIH
+select.addEventListener("change", function() {
   const id = this.value;
 
   if (userStatus[id]) {
@@ -155,30 +165,31 @@ document.getElementById("userSelect").addEventListener("change", function() {
 
 // 🔹 LOAD KOMODITI
 async function loadKomoditi() {
-  const snapshot = await getDocs(collection(db, "master_komoditi"));
-  const container = document.getElementById("komoditiList");
+  onSnapshot(collection(db, "master_komoditi"), (snapshot) => {
+    const container = document.getElementById("komoditiList");
+    container.innerHTML = "";
 
-  snapshot.forEach(docSnap => {
-    const nama = docSnap.data().nama;
+    snapshot.forEach(docSnap => {
+      const nama = docSnap.data().nama;
 
-    const div = document.createElement("div");
-    div.className = "checkbox-item";
+      const div = document.createElement("div");
+      div.className = "checkbox-item";
 
-    div.innerHTML = `
-      <input type="checkbox" value="${nama}">
-      <label>${nama}</label>
-    `;
+      div.innerHTML = `
+        <input type="checkbox" value="${nama}">
+        <label>${nama}</label>
+      `;
 
-    container.appendChild(div);
+      container.appendChild(div);
+    });
   });
 }
 
-loadUser();
+loadUserRealtime();
 loadKomoditi();
 
 // 🔹 GENERATE QR
 window.buatQR = async function() {
-  const select = document.getElementById("userSelect");
   const userId = select.value;
 
   if (!userId) {
@@ -219,7 +230,7 @@ window.buatQR = async function() {
   });
 }
 
-// 🔹 PRINT + NONAKTIFKAN USER
+// 🔹 PRINT + NONAKTIF
 window.printQR = async function() {
   const canvas = document.querySelector("#qrcode canvas");
 
@@ -228,10 +239,9 @@ window.printQR = async function() {
     return;
   }
 
-  const select = document.getElementById("userSelect");
   const userId = select.value;
 
-  // 🔒 anti double klik
+  // 🔒 lock sementara
   select.disabled = true;
 
   const komoditi = lastQR.split("|")[1].split(",");
@@ -243,7 +253,7 @@ window.printQR = async function() {
 
   userStatus[userId] = true;
 
-  // 🔴 UPDATE UI LANGSUNG
+  // update UI langsung
   const selectedOption = select.querySelector(`option[value="${userId}"]`);
   if (selectedOption) {
     selectedOption.text += " (SUDAH)";
@@ -251,7 +261,6 @@ window.printQR = async function() {
     selectedOption.disabled = true;
   }
 
-  // reset pilihan
   select.value = "";
 
   const img = canvas.toDataURL();
@@ -286,7 +295,6 @@ window.printQR = async function() {
 
   win.document.close();
 
-  // buka kembali dropdown
   setTimeout(() => {
     select.disabled = false;
   }, 1000);
