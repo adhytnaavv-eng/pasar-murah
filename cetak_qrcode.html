@@ -12,9 +12,7 @@
       padding: 15px;
     }
 
-    h2 {
-      text-align: center;
-    }
+    h2 { text-align: center; }
 
     .card {
       background: white;
@@ -38,9 +36,7 @@
       border: none;
     }
 
-    .btn-print {
-      background: #28a745;
-    }
+    .btn-print { background: #28a745; }
 
     .checkbox-item {
       display: flex;
@@ -58,9 +54,7 @@
       font-weight: bold;
     }
 
-    #qrcode {
-      text-align: center;
-    }
+    #qrcode { text-align: center; }
   </style>
 </head>
 
@@ -106,9 +100,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let lastQR = "";
-let userStatus = {}; // simpan status lokal
+let lastNama = "";
+let userStatus = {};
+let userMap = {}; // simpan id -> nama
 
-// 🔹 LOAD USER + STATUS
+// 🔹 LOAD USER
 async function loadUser() {
   const snapshot = await getDocs(collection(db, "registrasi"));
   const select = document.getElementById("userSelect");
@@ -119,7 +115,8 @@ async function loadUser() {
     const id = docSnap.id;
     const nama = docSnap.data().nama;
 
-    // cek status sudah ambil atau belum
+    userMap[id] = nama;
+
     const kuponSnap = await getDoc(doc(db, "kupon", id));
     let sudah = false;
 
@@ -145,9 +142,9 @@ async function loadUser() {
 
 // 🔹 VALIDASI PILIH USER
 document.getElementById("userSelect").addEventListener("change", function() {
-  const userId = this.value;
+  const id = this.value;
 
-  if (userStatus[userId]) {
+  if (userStatus[id]) {
     alert("Sudah Menerima Subsidi");
     this.value = "";
   }
@@ -176,7 +173,7 @@ async function loadKomoditi() {
 loadUser();
 loadKomoditi();
 
-// 🔹 GENERATE QR
+// 🔹 GENERATE QR (PAKAI NAMA)
 window.buatQR = async function() {
   const userId = document.getElementById("userSelect").value;
 
@@ -189,6 +186,9 @@ window.buatQR = async function() {
     alert("User sudah menerima!");
     return;
   }
+
+  const nama = userMap[userId];
+  lastNama = nama;
 
   const checkboxes = document.querySelectorAll("#komoditiList input:checked");
 
@@ -205,7 +205,8 @@ window.buatQR = async function() {
 
   await setDoc(doc(db, "kupon", userId), dataKupon, { merge: true });
 
-  lastQR = userId + "|" + komoditi.join(",");
+  // QR berisi NAMA
+  lastQR = nama + "|" + komoditi.join(",");
 
   const qrDiv = document.getElementById("qrcode");
   qrDiv.innerHTML = "";
@@ -215,7 +216,7 @@ window.buatQR = async function() {
   });
 }
 
-// 🔹 PRINT + NONAKTIFKAN USER
+// 🔹 PRINT + NONAKTIF
 window.printQR = async function() {
   const canvas = document.querySelector("#qrcode canvas");
 
@@ -224,10 +225,10 @@ window.printQR = async function() {
     return;
   }
 
-  const userId = lastQR.split("|")[0];
+  const userId = document.getElementById("userSelect").value;
 
-  // tandai semua komoditi jadi true
   const komoditi = lastQR.split("|")[1].split(",");
+
   let updateData = {};
   komoditi.forEach(k => updateData[k] = true);
 
@@ -243,25 +244,30 @@ window.printQR = async function() {
     <body style="text-align:center;font-family:monospace;font-size:12px;width:280px;">
       <h3>PASAR MURAH</h3>
       <hr>
-      <div>ID: ${userId}</div>
+
+      <div><b>${lastNama}</b></div>
+
       <img src="${img}" width="150">
+
       <hr>
       ${komoditi.map(k => `<div>- ${k}</div>`).join("")}
+
       <hr>
-      <div>Terima Kasih</div>
+      <div>Lil Au Nol Dael Banan</div>
+
       <script>
         window.onload = function(){
           window.print();
           setTimeout(()=>window.close(),500);
         }
       <\/script>
+
     </body>
     </html>
   `);
 
   win.document.close();
 
-  // reload user biar merah
   loadUser();
 }
 
