@@ -1,75 +1,189 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="id">
 <head>
-  <title>Registrasi Pasar Murah</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrasi Pasar Murah - Petugas 1</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background-color: #f0f2f5; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { 
+            background: #ffffff; 
+            width: 100%; 
+            max-width: 400px; 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
+            text-align: center;
+        }
+        h2 { color: #1a73e8; margin-bottom: 5px; font-weight: 600; }
+        p { color: #70757a; font-size: 14px; margin-bottom: 25px; }
+
+        .input-group { text-align: left; margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #3c4043; }
+        
+        input { 
+            width: 100%; 
+            padding: 12px 15px; 
+            border: 1px solid #dadce0; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input:focus { border-color: #1a73e8; background-color: #f8fbff; }
+
+        button { 
+            width: 100%; 
+            background-color: #1a73e8; 
+            color: white; 
+            border: none; 
+            padding: 15px; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            margin-top: 10px;
+            transition: background 0.3s, transform 0.1s;
+        }
+        button:active { transform: scale(0.98); background-color: #1557b0; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        #qr-container { 
+            margin-top: 25px; 
+            padding: 20px; 
+            background: #f8f9fa; 
+            border-radius: 15px; 
+            display: none; /* Sembunyi sebelum ada data */
+        }
+        #qrcode { display: flex; justify-content: center; margin-top: 10px; }
+        canvas { max-width: 100%; height: auto !important; border-radius: 8px; }
+        
+        .success-msg { color: #188038; font-size: 14px; margin-top: 10px; font-weight: 600; display: none; }
+    </style>
 </head>
 <body>
 
-<h2>Form Registrasi</h2>
+<div class="container">
+    <h2>Daftar Baru</h2>
+    <p>Silakan input data warga (Petugas 1)</p>
 
-<input type="text" id="nama" placeholder="Nama"><br><br> <input type="text" id="kk" placeholder="No KK"><br><br>
+    <div class="input-group">
+        <label>Nama Lengkap</label>
+        <input type="text" id="nama" placeholder="Contoh: Budi Santoso" autocomplete="off">
+    </div>
 
-<button onclick="simpanData()">Simpan</button>
+    <div class="input-group">
+        <label>Nomor KK / NIK</label>
+        <input type="number" id="kk" placeholder="Input 16 digit nomor" autocomplete="off">
+    </div>
 
-<h3>QR Code:</h3>
-<div id="qrcode"></div>
+    <button id="btnSimpan" onclick="simpanData()">Simpan & Buat ID</button>
+    <div id="statusMsg" class="success-msg">✅ Registrasi Berhasil!</div>
+
+    <div id="qr-container">
+        <label>ID Registrasi Berhasil Dibuat:</label>
+        <div id="qrcode"></div>
+        <div id="idTeks" style="margin-top:10px; font-weight:bold; color:#1a73e8;"></div>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
-    authDomain: "pasar-murah-kk.firebaseapp.com",
-    projectId: "pasar-murah-kk",
-    storageBucket: "pasar-murah-kk.firebasestorage.app",
-    messagingSenderId: "964431531376",
-    appId: "1:964431531376:web:c6b30579b3a41fb91293b5"
-  };
+    const firebaseConfig = {
+        apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
+        authDomain: "pasar-murah-kk.firebaseapp.com",
+        projectId: "pasar-murah-kk",
+        storageBucket: "pasar-murah-kk.firebasestorage.app",
+        messagingSenderId: "964431531376",
+        appId: "1:964431531376:web:c6b30579b3a41fb91293b5"
+    };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  window.simpanData = async function() {
-    try {
-      const nama = document.getElementById("nama").value;
-      const kk = document.getElementById("kk").value;
+    window.simpanData = async function() {
+        const btn = document.getElementById("btnSimpan");
+        const nama = document.getElementById("nama").value.trim();
+        const kk = document.getElementById("kk").value.trim();
 
-      const id = "PM" + Date.now();
+        if (!nama || !kk) {
+            alert("Mohon isi nama dan nomor KK!");
+            return;
+        }
 
-      // Simpan data
-      await setDoc(doc(db, "registrasi", id), {
-        nama: nama,
-        kk: kk,
-        created_at: new Date()
-      });
+        // Kunci tombol agar tidak dobel klik
+        btn.disabled = true;
+        btn.innerText = "Menyimpan...";
 
-      await setDoc(doc(db, "kupon", id), {
-        beras: false,
-        minyak: false,
-        telur: false,
-        status: "belum"
-      });
+        try {
+            // Gunakan ID unik yang rapi
+            const id = "PM-" + Math.random().toString(36).substr(2, 6).toUpperCase();
 
-      // Generate QR
-      const qrDiv = document.getElementById("qrcode");
-      qrDiv.innerHTML = ""; // reset
+            // 1. Simpan ke koleksi registrasi
+            await setDoc(doc(db, "registrasi", id), {
+                nama: nama,
+                kk: kk,
+                created_at: new Date()
+            });
 
-      QRCode.toCanvas(id, { width: 200 }, function (error, canvas) {
-        if (error) console.error(error);
-        qrDiv.appendChild(canvas);
-      });
+            // Note: Koleksi 'kupon' akan dibuat oleh Petugas 2 nanti, 
+            // Namun jika ingin disiapkan sekarang (kosong) juga boleh:
+            // await setDoc(doc(db, "kupon", id), { nama: nama, status_cetak: false });
 
-      alert("Registrasi berhasil!");
+            // Tampilkan QR
+            const qrContainer = document.getElementById("qr-container");
+            const qrDiv = document.getElementById("qrcode");
+            const idTeks = document.getElementById("idTeks");
+            
+            qrDiv.innerHTML = ""; 
+            idTeks.innerText = id;
 
-    } catch (error) {
-      alert("Error: " + error.message);
-      console.error(error);
+            // Generate QR (Data QR: ID|Nama) agar Petugas 2 mudah scan
+            const qrData = id + "|" + nama;
+
+            QRCode.toCanvas(qrData, { 
+                width: 180, 
+                margin: 2,
+                color: { dark: "#1a73e8", light: "#ffffff" } 
+            }, function (error, canvas) {
+                if (error) console.error(error);
+                qrDiv.appendChild(canvas);
+                qrContainer.style.display = "block";
+            });
+
+            // Feedback sukses
+            document.getElementById("statusMsg").style.display = "block";
+            
+            // Reset form input saja
+            document.getElementById("nama").value = "";
+            document.getElementById("kk").value = "";
+            
+            alert("Berhasil Terdaftar!\nID: " + id);
+
+        } catch (error) {
+            alert("Gagal: " + error.message);
+            console.error(error);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Simpan & Buat ID";
+        }
     }
-  }
 </script>
 
 </body>
