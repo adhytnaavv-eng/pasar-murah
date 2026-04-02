@@ -1,19 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>Petugas 2 - Komoditi</title>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Petugas 2 - Monitoring Komoditi</title>
+  
   <style>
-    body { font-family: sans-serif; background: #f0f2f5; padding: 20px; max-width: 500px; margin: auto; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    h2 { text-align: center; color: #1a73e8; }
-    select, button { width: 100%; height: 45px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
-    button { background: #1a73e8; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
-    button:hover { background: #1557b0; }
-    .btn-print { background: #34a853; display: none; margin-top: 15px; } /* Sembunyi sampai QR muncul */
-    #qrcode { display: flex; justify-content: center; margin-top: 15px; }
-    .komoditi-item { margin: 8px 0; display: flex; align-items: center; }
-    input[type="checkbox"] { transform: scale(1.2); margin-right: 10px; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f7f6; padding: 20px; }
+    .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+    h2 { text-align: center; color: #2c3e50; }
+    
+    label { font-weight: bold; display: block; margin: 15px 0 5px; }
+    select, button { width: 100%; height: 50px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; }
+    
+    /* Style khusus untuk option yang sudah dinonaktifkan */
+    option.sudah-ambil { color: red !important; font-weight: bold; }
+
+    .komoditi-list { background: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px; }
+    .item { display: flex; align-items: center; margin-bottom: 10px; }
+    .item input { transform: scale(1.3); margin-right: 12px; }
+
+    .btn-generate { background: #1a73e8; color: white; border: none; margin-top: 20px; cursor: pointer; }
+    .btn-print { background: #28a745; color: white; border: none; margin-top: 15px; display: none; cursor: pointer; }
+    
+    #qrcode { display: flex; justify-content: center; margin-top: 20px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -21,23 +32,18 @@
 <div class="card">
   <h2>📋 Petugas 2</h2>
   
-  <label><b>Pilih Nama Penerima:</b></label>
+  <label>Nama Penerima:</label>
   <select id="userSelect">
     <option value="">-- Memuat Nama... --</option>
   </select>
 
-  <br><br>
+  <label>Pilih Komoditi:</label>
+  <div id="komoditiList" class="komoditi-list"></div>
 
-  <label><b>Pilih Komoditi:</b></label>
-  <div id="komoditiList"></div>
-
-  <button onclick="buatQR()">🎯 Generate QR Code</button>
-</div>
-
-<div class="card" id="qrSection" style="display:none;">
-  <h3>Preview QR Code:</h3>
+  <button class="btn-generate" onclick="generateQR()">🎯 Generate QR Code</button>
+  
   <div id="qrcode"></div>
-  <button class="btn-print" id="btnPrint" onclick="cetakDanSelesaikan()">🖨️ Print & Selesaikan</button>
+  <button class="btn-print" id="btnPrint" onclick="simpanDanPrint()">🖨️ Print & Nonaktifkan</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
@@ -60,146 +66,135 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  let dataRegistrasi = [];
-  let dataKuponSelesai = new Set();
-  let selectedNama = "";
+  let listRegistrasi = [];
+  let listSudahAmbil = new Set();
+  let tempQRData = null;
 
-  // --- 1. MONITOR DATA SECARA REAL-TIME ---
-  // Kita pantau koleksi 'registrasi' (semua nama) AND 'kupon' (yang sudah diproses)
-  function startListening() {
-    // Pantau yang sudah ambil kupon
-    onSnapshot(collection(db, "kupon"), (snapshot) => {
-      dataKuponSelesai.clear();
-      snapshot.forEach(doc => dataKuponSelesai.add(doc.id));
-      renderDropdown(); // Update list setiap ada yang selesai
-    });
-
-    // Pantau daftar registrasi
-    onSnapshot(collection(db, "registrasi"), (snapshot) => {
-      dataRegistrasi = [];
-      snapshot.forEach(doc => {
-        dataRegistrasi.push({ id: doc.id, nama: doc.data().nama });
-      });
-      renderDropdown();
-    });
-  }
-
-  // --- 2. RENDER DROPDOWN (Hanya yang BELUM ada di koleksi kupon) ---
-  function renderDropdown() {
-    const select = document.getElementById("userSelect");
-    select.innerHTML = '<option value="">-- Pilih Nama --</option>';
-
-    dataRegistrasi.forEach(user => {
-      // JIKA ID user belum ada di koleksi kupon, tampilkan di dropdown
-      if (!dataKuponSelesai.has(user.id)) {
-        const option = document.createElement("option");
-        option.value = user.id;
-        option.text = user.nama;
-        select.appendChild(option);
-      }
-    });
-  }
-
-  // --- 3. LOAD KOMODITI ---
+  // --- 1. AMBIL MASTER KOMODITI ---
   async function loadKomoditi() {
-    const snapshot = await getDocs(collection(db, "master_komoditi"));
+    const snap = await getDocs(collection(db, "master_komoditi"));
     const container = document.getElementById("komoditiList");
-    snapshot.forEach(docSnap => {
-      const nama = docSnap.data().nama;
+    container.innerHTML = "";
+    snap.forEach(doc => {
+      const nama = doc.data().nama || doc.data().Nama;
       const div = document.createElement("div");
-      div.className = "komoditi-item";
+      div.className = "item";
       div.innerHTML = `<input type="checkbox" value="${nama}"> <label>${nama}</label>`;
       container.appendChild(div);
     });
   }
 
-  // --- 4. GENERATE QR (Hanya Preview) ---
-  window.buatQR = function() {
-    const userId = document.getElementById("userSelect").value;
-    const selectEl = document.getElementById("userSelect");
-    selectedNama = selectEl.options[selectEl.selectedIndex].text;
+  // --- 2. MONITOR REAL-TIME (Untuk Warna Merah & Disable) ---
+  function initApp() {
+    // Pantau pendaftar
+    onSnapshot(collection(db, "registrasi"), (snap) => {
+      listRegistrasi = [];
+      snap.forEach(d => listRegistrasi.push({ id: d.id, nama: d.data().nama || d.data().Nama }));
+      updateDropdown();
+    });
 
-    const checkboxes = document.querySelectorAll("#komoditiList input:checked");
-    if (!userId) return alert("Pilih nama dulu!");
-    if (checkboxes.length === 0) return alert("Pilih komoditi!");
+    // Pantau yang sudah ambil (koleksi kupon)
+    onSnapshot(collection(db, "kupon"), (snap) => {
+      listSudahAmbil.clear();
+      snap.forEach(d => listSudahAmbil.add(d.id));
+      updateDropdown();
+    });
+  }
+
+  // --- 3. UPDATE DROPDOWN (LOGIKA WARNA MERAH) ---
+  function updateDropdown() {
+    const select = document.getElementById("userSelect");
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Pilih Nama --</option>';
+
+    listRegistrasi.forEach(user => {
+      const option = document.createElement("option");
+      option.value = user.id;
+      
+      // Jika ID ada di koleksi kupon, tandai merah dan nonaktifkan
+      if (listSudahAmbil.has(user.id)) {
+        option.text = user.nama + " (SUDAH AMBIL)";
+        option.classList.add("sudah-ambil");
+        option.disabled = true; // Tidak bisa dipilih lagi
+      } else {
+        option.text = user.nama;
+      }
+      select.appendChild(option);
+    });
+    select.value = currentVal;
+  }
+
+  // --- 4. GENERATE QR ---
+  window.generateQR = function() {
+    const select = document.getElementById("userSelect");
+    const userId = select.value;
+    if (!userId) return alert("Pilih nama!");
+
+    const userName = select.options[select.selectedIndex].text;
+    const checks = document.querySelectorAll("#komoditiList input:checked");
+    if (checks.length === 0) return alert("Pilih komoditi!");
 
     let komoditi = [];
-    checkboxes.forEach(cb => komoditi.push(cb.value));
+    checks.forEach(c => komoditi.push(c.value));
 
-    // Isi data QR
-    const qrData = userId + "|" + selectedNama + "|" + komoditi.join(",");
+    tempQRData = { id: userId, nama: userName, komoditi: komoditi };
+    const qrString = `${userId}|${userName}|${komoditi.join(",")}`;
 
     const qrDiv = document.getElementById("qrcode");
     qrDiv.innerHTML = "";
-
-    QRCode.toCanvas(qrData, { width: 200 }, function (error, canvas) {
-      if (error) return console.error(error);
+    QRCode.toCanvas(qrString, { width: 200 }, (err, canvas) => {
       qrDiv.appendChild(canvas);
-      document.getElementById("qrSection").style.display = "block";
       document.getElementById("btnPrint").style.display = "block";
     });
   };
 
-  // --- 5. PRINT & SELESAIKAN (Update Firebase agar Nama Hilang) ---
-  window.cetakDanSelesaikan = async function() {
-    const userId = document.getElementById("userSelect").value;
-    const checkboxes = document.querySelectorAll("#komoditiList input:checked");
+  // --- 5. SIMPAN KE FIREBASE & PRINT ---
+  window.simpanDanPrint = async function() {
     const canvas = document.querySelector("#qrcode canvas");
+    if (!canvas || !tempQRData) return;
 
-    if (!canvas) return;
-
-    let komoditi = [];
-    checkboxes.forEach(cb => komoditi.push(cb.value));
-
-    // 🔹 SIMPAN KE DATABASE (Ini yang membuat nama hilang dari daftar)
-    let dataKupon = {
-      nama: selectedNama,
-      waktu_generate: new Date().toISOString(),
-      status_cetak: true
+    // Menandai di Firebase agar status berubah
+    const docData = {
+      nama: tempQRData.nama,
+      waktu: new Date().toISOString(),
+      cetak: true
     };
-    komoditi.forEach(k => dataKupon[k] = false); // Status awal distribusi false
+    tempQRData.komoditi.forEach(k => docData[k] = false);
 
     try {
-      await setDoc(doc(db, "kupon", userId), dataKupon, { merge: true });
+      // Data tetap ada di 'registrasi', tapi ID-nya dicatat di 'kupon' sebagai tanda nonaktif
+      await setDoc(doc(db, "kupon", tempQRData.id), docData);
 
-      // 🔹 PROSES PRINT
-      const imgData = canvas.toDataURL("image/png");
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <body style="text-align:center;font-family:sans-serif;">
-            <h2>KUPON PASAR MURAH</h2>
-            <hr>
-            <h3>${selectedNama}</h3>
-            <img src="${imgData}" />
-            <p>Daftar Komoditi:<br><b>${komoditi.join(", ")}</b></p>
-            <script>
-              window.onload = function() { window.print(); window.close(); };
-            <\/script>
-          </body>
-        </html>
+      // Cetak Struk
+      const img = canvas.toDataURL();
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <body style="text-align:center; font-family:monospace; width:250px; margin:auto;">
+          <h3>PASAR MURAH</h3><hr>
+          <b>${tempQRData.nama}</b><br>
+          <img src="${img}" style="width:150px;"><br>
+          <div style="text-align:left;">
+            Komoditi:<br> ${tempQRData.komoditi.map(k => "- "+k).join("<br>")}
+          </div><hr>
+          <script>window.onload=function(){window.print();window.close();}<\/script>
+        </body>
       `);
-      printWindow.document.close();
+      win.document.close();
 
-      // Reset tampilan
-      alert("Print berhasil! Nama " + selectedNama + " telah dinonaktifkan.");
+      alert("Selesai! Nama tersebut sekarang sudah nonaktif (berwarna merah).");
       resetForm();
-
-    } catch (e) {
-      alert("Gagal menyimpan: " + e);
-    }
+    } catch (e) { alert("Error: " + e.message); }
   };
 
   function resetForm() {
-    document.getElementById("qrSection").style.display = "none";
     document.getElementById("userSelect").value = "";
-    document.querySelectorAll("#komoditiList input").forEach(cb => cb.checked = false);
+    document.getElementById("btnPrint").style.display = "none";
+    document.getElementById("qrcode").innerHTML = "";
+    document.querySelectorAll("#komoditiList input").forEach(c => c.checked = false);
   }
 
-  // Jalankan fungsi awal
-  startListening();
   loadKomoditi();
+  initApp();
 </script>
-
 </body>
 </html>
