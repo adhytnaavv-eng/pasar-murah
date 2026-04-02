@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html>
 <head>
   <title>Scan Distribusi</title>
@@ -58,7 +57,7 @@
 
   let userId = "";
   let komoditiList = [];
-  let selectedItem = "";
+  let selectedItems = [];
   let scanner;
 
   // 🔥 LOAD DISTRIBUTOR DINAMIS
@@ -81,30 +80,44 @@
 
   loadDistributor();
 
-  // 🔥 TAMPILKAN TOMBOL KOMODITI
+  // 🔥 TAMPILKAN CHECKBOX KOMODITI
   function renderButtons(dataKupon) {
     const container = document.getElementById("komoditiButtons");
     container.innerHTML = "";
 
-    komoditiList.forEach(item => {
-      const btn = document.createElement("button");
-      btn.innerText = item;
+    selectedItems = [];
 
+    komoditiList.forEach(item => {
+      const wrapper = document.createElement("div");
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = item;
+
+      // disable jika sudah diambil
       if (dataKupon[item] === true) {
-        btn.disabled = true;
+        checkbox.disabled = true;
       }
 
-      btn.onclick = () => {
-        selectedItem = item;
-        alert("Dipilih: " + item);
+      checkbox.onchange = () => {
+        if (checkbox.checked) {
+          selectedItems.push(item);
+        } else {
+          selectedItems = selectedItems.filter(i => i !== item);
+        }
       };
 
-      container.appendChild(btn);
-      container.appendChild(document.createElement("br"));
+      const label = document.createElement("label");
+      label.innerText = " " + item;
+
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(label);
+
+      container.appendChild(wrapper);
     });
   }
 
-  // 🔥 LOAD STATUS KUpon
+  // 🔥 LOAD STATUS KUPON
   async function loadData() {
     const snap = await getDoc(doc(db, "kupon", userId));
 
@@ -126,7 +139,7 @@
     loadData();
   }
 
-  // 🔥 START SCAN (KAMERA BELAKANG)
+  // 🔥 START SCAN
   window.startScan = function() {
     scanner = new Html5Qrcode("reader");
 
@@ -157,10 +170,10 @@
       });
   }
 
-  // 🔥 SIMPAN DISTRIBUSI
+  // 🔥 SIMPAN DISTRIBUSI (MULTI KOMODITI)
   window.simpan = async function() {
-    if (!selectedItem) {
-      alert("Pilih komoditi dulu!");
+    if (selectedItems.length === 0) {
+      alert("Pilih minimal 1 komoditi!");
       return;
     }
 
@@ -171,23 +184,27 @@
       return;
     }
 
-    // update status kupon
-    await updateDoc(doc(db, "kupon", userId), {
-      [selectedItem]: true
-    });
+    const ref = doc(db, "kupon", userId);
 
-    // simpan log distribusi
-    await addDoc(collection(db, "distribusi"), {
-      id_user: userId,
-      komoditi: selectedItem,
-      distributor: distributor,
-      waktu: new Date()
-    });
+    for (let item of selectedItems) {
 
-    alert("Berhasil diserahkan: " + selectedItem);
+      await updateDoc(ref, {
+        [item]: true
+      });
 
-    selectedItem = "";
-    loadData(); // refresh tombol
+      await addDoc(collection(db, "distribusi"), {
+        id_user: userId,
+        komoditi: item,
+        distributor: distributor,
+        waktu: new Date()
+      });
+
+    }
+
+    alert("Berhasil diserahkan: " + selectedItems.join(", "));
+
+    selectedItems = [];
+    loadData();
   }
 </script>
 
