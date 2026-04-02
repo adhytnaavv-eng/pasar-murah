@@ -64,7 +64,9 @@
 
 <div class="card">
   <label>Nama Penerima</label>
-  <select id="userSelect"></select>
+  <select id="userSelect">
+    <option value="">-- Pilih Nama --</option>
+  </select>
 </div>
 
 <div class="card">
@@ -102,14 +104,14 @@ const db = getFirestore(app);
 let lastQR = "";
 let lastNama = "";
 let userStatus = {};
-let userMap = {}; // simpan id -> nama
+let userMap = {};
 
 // 🔹 LOAD USER
 async function loadUser() {
   const snapshot = await getDocs(collection(db, "registrasi"));
   const select = document.getElementById("userSelect");
 
-  select.innerHTML = "";
+  select.innerHTML = '<option value="">-- Pilih Nama --</option>';
 
   for (const docSnap of snapshot.docs) {
     const id = docSnap.id;
@@ -134,6 +136,7 @@ async function loadUser() {
     if (sudah) {
       option.text += " (SUDAH)";
       option.classList.add("sudah");
+      option.disabled = true; // 🔴 langsung tidak bisa dipilih
     }
 
     select.appendChild(option);
@@ -173,9 +176,10 @@ async function loadKomoditi() {
 loadUser();
 loadKomoditi();
 
-// 🔹 GENERATE QR (PAKAI NAMA)
+// 🔹 GENERATE QR
 window.buatQR = async function() {
-  const userId = document.getElementById("userSelect").value;
+  const select = document.getElementById("userSelect");
+  const userId = select.value;
 
   if (!userId) {
     alert("Pilih user dulu!");
@@ -205,7 +209,6 @@ window.buatQR = async function() {
 
   await setDoc(doc(db, "kupon", userId), dataKupon, { merge: true });
 
-  // QR berisi NAMA
   lastQR = nama + "|" + komoditi.join(",");
 
   const qrDiv = document.getElementById("qrcode");
@@ -216,7 +219,7 @@ window.buatQR = async function() {
   });
 }
 
-// 🔹 PRINT + NONAKTIF
+// 🔹 PRINT + NONAKTIFKAN USER
 window.printQR = async function() {
   const canvas = document.querySelector("#qrcode canvas");
 
@@ -225,7 +228,11 @@ window.printQR = async function() {
     return;
   }
 
-  const userId = document.getElementById("userSelect").value;
+  const select = document.getElementById("userSelect");
+  const userId = select.value;
+
+  // 🔒 anti double klik
+  select.disabled = true;
 
   const komoditi = lastQR.split("|")[1].split(",");
 
@@ -235,6 +242,17 @@ window.printQR = async function() {
   await updateDoc(doc(db, "kupon", userId), updateData);
 
   userStatus[userId] = true;
+
+  // 🔴 UPDATE UI LANGSUNG
+  const selectedOption = select.querySelector(`option[value="${userId}"]`);
+  if (selectedOption) {
+    selectedOption.text += " (SUDAH)";
+    selectedOption.classList.add("sudah");
+    selectedOption.disabled = true;
+  }
+
+  // reset pilihan
+  select.value = "";
 
   const img = canvas.toDataURL();
 
@@ -253,7 +271,7 @@ window.printQR = async function() {
       ${komoditi.map(k => `<div>- ${k}</div>`).join("")}
 
       <hr>
-      <div>Lil Au Nol Dael Banan</div>
+      <div>Terima Kasih</div>
 
       <script>
         window.onload = function(){
@@ -268,7 +286,10 @@ window.printQR = async function() {
 
   win.document.close();
 
-  loadUser();
+  // buka kembali dropdown
+  setTimeout(() => {
+    select.disabled = false;
+  }, 1000);
 }
 
 </script>
