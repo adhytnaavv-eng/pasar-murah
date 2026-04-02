@@ -1,41 +1,117 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard Distribusi</title>
+  <title>Dashboard Mobile</title>
+
+  <!-- Responsive -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Style -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f4f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 420px;
+      margin: auto;
+      padding: 15px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    label {
+      font-size: 14px;
+      color: #555;
+    }
+
+    input, select, button {
+      width: 100%;
+      height: 45px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      padding: 5px 10px;
+      font-size: 14px;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      font-weight: bold;
+    }
+
+    button:active {
+      background: #45a049;
+    }
+
+    .result-item {
+      background: #eef6ff;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .empty {
+      text-align: center;
+      color: #888;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>📊 Dashboard Distribusi</h2>
+<div class="container">
 
-<h3>Pilih Rentang Tanggal</h3>
-Dari: <input type="date" id="startDate">
-Sampai: <input type="date" id="endDate">
+  <h2>📊 Dashboard</h2>
 
-<br><br>
+  <div class="card">
+    <label>Dari Tanggal</label>
+    <input type="date" id="startDate">
 
-<button onclick="loadDistributorByDate()">🔍 Load Distributor</button>
+    <label>Sampai Tanggal</label>
+    <input type="date" id="endDate">
 
-<br><br>
+    <button onclick="loadDistributorByDate()">Load Distributor</button>
+  </div>
 
-<h3>Pilih Distributor</h3>
-<select id="distributorSelect">
-  <option value="">-- Pilih Distributor --</option>
-</select>
+  <div class="card">
+    <label>Pilih Distributor</label>
+    <select id="distributorSelect">
+      <option value="">-- Pilih --</option>
+    </select>
 
-<br><br>
+    <button onclick="tampilkanData()">Tampilkan Data</button>
+  </div>
 
-<button onclick="tampilkanData()">📊 Tampilkan</button>
+  <div class="card">
+    <h3>Hasil Distribusi</h3>
+    <div id="hasil"></div>
+  </div>
 
-<h3>Komoditi yang Disalurkan</h3>
-<ul id="hasil"></ul>
+</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { 
-    getFirestore, 
-    collection, 
-    getDocs 
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
@@ -48,13 +124,12 @@ Sampai: <input type="date" id="endDate">
 
   let filteredData = [];
 
-  // 🔥 LOAD DISTRIBUTOR BERDASARKAN TANGGAL
   window.loadDistributorByDate = async function() {
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
 
     if (!startDate || !endDate) {
-      alert("Pilih rentang tanggal dulu!");
+      alert("Pilih tanggal dulu!");
       return;
     }
 
@@ -69,7 +144,6 @@ Sampai: <input type="date" id="endDate">
 
     snapshot.forEach(doc => {
       const data = doc.data();
-
       let waktu = data.waktu?.toDate ? data.waktu.toDate() : new Date(data.waktu);
 
       if (waktu >= start && waktu <= end) {
@@ -78,9 +152,8 @@ Sampai: <input type="date" id="endDate">
       }
     });
 
-    // isi dropdown distributor
     const select = document.getElementById("distributorSelect");
-    select.innerHTML = '<option value="">-- Pilih Distributor --</option>';
+    select.innerHTML = '<option value="">-- Pilih --</option>';
 
     distributorSet.forEach(nama => {
       const option = document.createElement("option");
@@ -88,49 +161,39 @@ Sampai: <input type="date" id="endDate">
       option.text = nama;
       select.appendChild(option);
     });
-
-    if (distributorSet.size === 0) {
-      alert("Tidak ada distributor di tanggal tersebut");
-    }
   }
 
-  // 🔥 TAMPILKAN DATA KOMODITI
   window.tampilkanData = function() {
-    const selectedDistributor = document.getElementById("distributorSelect").value;
-
+    const selected = document.getElementById("distributorSelect").value;
     const hasil = document.getElementById("hasil");
     hasil.innerHTML = "";
 
-    if (!selectedDistributor) {
+    if (!selected) {
       alert("Pilih distributor!");
       return;
     }
 
-    let komoditiCount = {};
+    let count = {};
 
     filteredData.forEach(data => {
-      if (data.distributor === selectedDistributor) {
-
-        if (!komoditiCount[data.komoditi]) {
-          komoditiCount[data.komoditi] = 0;
-        }
-
-        komoditiCount[data.komoditi]++;
+      if (data.distributor === selected) {
+        if (!count[data.komoditi]) count[data.komoditi] = 0;
+        count[data.komoditi]++;
       }
     });
 
-    if (Object.keys(komoditiCount).length === 0) {
-      hasil.innerHTML = "<li>Tidak ada data</li>";
+    if (Object.keys(count).length === 0) {
+      hasil.innerHTML = "<div class='empty'>Tidak ada data</div>";
       return;
     }
 
-    for (let item in komoditiCount) {
-      const li = document.createElement("li");
-      li.innerText = item + " : " + komoditiCount[item];
-      hasil.appendChild(li);
+    for (let item in count) {
+      const div = document.createElement("div");
+      div.className = "result-item";
+      div.innerHTML = `<span>${item}</span><strong>${count[item]}</strong>`;
+      hasil.appendChild(div);
     }
   }
-
 </script>
 
 </body>
