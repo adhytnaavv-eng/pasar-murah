@@ -1,25 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Petugas Komoditi</title>
+  <title>Petugas Komoditi - Pasar Murah</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body {
-      font-family: Arial;
-      background: #f4f6f8;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
       padding: 15px;
+      max-width: 500px;
+      margin: auto;
     }
 
-    h2 { text-align: center; }
+    h2 { text-align: center; color: #333; }
 
     .card {
       background: white;
-      padding: 15px;
+      padding: 20px;
       border-radius: 12px;
       margin-bottom: 15px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
+
+    label { font-weight: bold; display: block; margin-bottom: 8px; color: #555; }
 
     select, button {
       width: 100%;
@@ -27,33 +31,44 @@
       font-size: 16px;
       margin-top: 10px;
       border-radius: 10px;
+      border: 1px solid #ddd;
     }
 
     button {
       background: #007bff;
       color: white;
       border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s;
     }
 
-    .btn-print { background: #28a745; }
+    button:active { transform: scale(0.98); }
+
+    .btn-print { background: #28a745; margin-top: 20px; }
 
     .checkbox-item {
       display: flex;
       align-items: center;
-      margin: 8px 0;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
     }
 
     input[type="checkbox"] {
       transform: scale(1.4);
-      margin-right: 10px;
+      margin-right: 15px;
     }
 
-    .sudah {
-      color: red;
-      font-weight: bold;
+    #qrcode { 
+      display: flex;
+      justify-content: center;
+      padding: 10px;
     }
 
-    #qrcode { text-align: center; }
+    #qrcode canvas {
+      max-width: 100%;
+      border: 1px solid #eee;
+    }
   </style>
 </head>
 
@@ -62,27 +77,21 @@
 <h2>📦 Petugas Komoditi</h2>
 
 <div class="card">
-  <label>Nama</label>
+  <label>Pilih Nama Penerima</label>
   <select id="userSelect">
-    <option value="">-- Pilih --</option>
+    <option value="">-- Memuat Data... --</option>
   </select>
 </div>
 
 <div class="card">
-  <label>Komoditi</label>
+  <label>Daftar Komoditi</label>
   <div id="komoditiList"></div>
 </div>
 
 <div class="card">
-  <button onclick="buatQR()">🎯 Generate QR</button>
-</div>
-
-<div class="card">
+  <button onclick="buatQR()">🎯 Generate QR Code</button>
   <div id="qrcode"></div>
-</div>
-
-<div class="card">
-  <button class="btn-print" onclick="printQR()">🖨️ Print</button>
+  <button id="btnPrint" class="btn-print" onclick="printQR()" style="display: none;">🖨️ Print & Konfirmasi</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
@@ -91,9 +100,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore, collection, onSnapshot,
-  doc, setDoc, getDoc, runTransaction
+  doc, setDoc, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// GANTI DENGAN KONFIGURASI FIREBASE ANDA
 const firebaseConfig = {
   apiKey: "ISI_PUNYA_KAMU",
   authDomain: "ISI",
@@ -109,10 +119,11 @@ let kuponStatus = {};
 let lastQR = "";
 let lastNama = "";
 
-// ===== ELEMENT =====
 const select = document.getElementById("userSelect");
+const btnPrint = document.getElementById("btnPrint");
+const qrcodeDiv = document.getElementById("qrcode");
 
-// ===== REALTIME USER =====
+// ===== REALTIME USER DATA =====
 onSnapshot(collection(db, "registrasi"), (snapshot) => {
   userList = [];
   snapshot.forEach(docSnap => {
@@ -124,148 +135,127 @@ onSnapshot(collection(db, "registrasi"), (snapshot) => {
   renderUser();
 });
 
-// ===== REALTIME KUPON (INI KUNCI FIX) =====
+// ===== REALTIME KUPON STATUS =====
 onSnapshot(collection(db, "kupon"), (snapshot) => {
   kuponStatus = {};
-
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
+    // Jika status "selesai", simpan sebagai true
     kuponStatus[docSnap.id] = data.status === "selesai";
   });
-
-  renderUser();
+  renderUser(); // Re-render setiap kali ada perubahan status
 });
 
-// ===== RENDER USER =====
+// ===== RENDER USER (FILTERING LOGIC) =====
 function renderUser() {
-  select.innerHTML = '<option value="">-- Pilih --</option>';
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">-- Pilih Nama --</option>';
 
   userList.forEach(user => {
-    const option = document.createElement("option");
-    option.value = user.id;
+    const sudahSelesai = kuponStatus[user.id] || false;
 
-    const sudah = kuponStatus[user.id];
-
-    option.text = user.nama;
-
-    if (sudah) {
-      option.text += " (SUDAH)";
-      option.disabled = true;
-      option.classList.add("sudah");
+    // KUNCI: Hanya tambahkan ke list jika status BELUM "selesai"
+    if (!sudahSelesai) {
+      const option = document.createElement("option");
+      option.value = user.id;
+      option.text = user.nama;
+      select.appendChild(option);
     }
-
-    select.appendChild(option);
   });
+  
+  // Jika nama yang terpilih tiba-tiba hilang (karena diupdate user lain), reset pilihan
+  if (currentValue && !userList.find(u => u.id === currentValue)) {
+      resetForm();
+  }
 }
 
-// ===== VALIDASI PILIH =====
-select.addEventListener("change", function() {
-  const id = this.value;
-
-  if (kuponStatus[id]) {
-    alert("Sudah Menerima Subsidi");
-    this.value = "";
-  }
-});
-
-// ===== LOAD KOMODITI =====
+// ===== LOAD MASTER KOMODITI =====
 onSnapshot(collection(db, "master_komoditi"), (snapshot) => {
   const container = document.getElementById("komoditiList");
   container.innerHTML = "";
-
   snapshot.forEach(docSnap => {
     const nama = docSnap.data().nama;
-
     const div = document.createElement("div");
     div.className = "checkbox-item";
-
-    div.innerHTML = `
-      <input type="checkbox" value="${nama}">
-      <label>${nama}</label>
-    `;
-
+    div.innerHTML = `<input type="checkbox" value="${nama}"> <label>${nama}</label>`;
     container.appendChild(div);
   });
 });
 
 // ===== GENERATE QR =====
-window.buatQR = async function() {
+window.buatQR = function() {
   const userId = select.value;
-  if (!userId) return alert("Pilih user dulu!");
+  if (!userId) return alert("Silakan pilih nama terlebih dahulu!");
 
-  if (kuponStatus[userId]) {
-    return alert("Sudah menerima!");
-  }
+  const checkboxes = document.querySelectorAll("#komoditiList input:checked");
+  if (checkboxes.length === 0) return alert("Pilih minimal satu komoditi!");
 
   const user = userList.find(u => u.id === userId);
   lastNama = user.nama;
 
-  const checkboxes = document.querySelectorAll("#komoditiList input:checked");
-  if (checkboxes.length === 0) return alert("Pilih komoditi!");
-
   let komoditi = [];
   checkboxes.forEach(cb => komoditi.push(cb.value));
 
-  let dataAwal = {};
-  komoditi.forEach(k => dataAwal[k] = false);
+  // Format data QR: ID|Nama|Komoditi1,Komoditi2
+  lastQR = `${userId}|${lastNama}|${komoditi.join(",")}`;
 
-  await setDoc(doc(db, "kupon", userId), dataAwal, { merge: true });
-
-  lastQR = user.nama + "|" + komoditi.join(",");
-
-  const qrDiv = document.getElementById("qrcode");
-  qrDiv.innerHTML = "";
-
-  QRCode.toCanvas(lastQR, { width: 200 }, function (err, canvas) {
-    qrDiv.appendChild(canvas);
+  qrcodeDiv.innerHTML = "";
+  QRCode.toCanvas(lastQR, { width: 220, margin: 2 }, function (err, canvas) {
+    if (err) console.error(err);
+    qrcodeDiv.appendChild(canvas);
+    btnPrint.style.display = "block"; // Munculkan tombol print
   });
 };
 
-// ===== PRINT + LOCK SERVER =====
+// ===== PRINT & UPDATE DATABASE (LOCK) =====
 window.printQR = async function() {
   const canvas = document.querySelector("#qrcode canvas");
-  if (!canvas) return alert("Generate QR dulu!");
+  if (!canvas) return;
 
   const userId = select.value;
-  if (!userId) return alert("Pilih user dulu!");
-
-  const komoditi = lastQR.split("|")[1].split(",");
+  const parts = lastQR.split("|");
+  const komoditi = parts[2].split(",");
 
   try {
+    // Gunakan Transaction untuk memastikan tidak ada double input di saat bersamaan
     await runTransaction(db, async (transaction) => {
       const ref = doc(db, "kupon", userId);
       const snap = await transaction.get(ref);
 
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.status === "selesai") throw "SUDAH";
+      if (snap.exists() && snap.data().status === "selesai") {
+        throw "Penerima ini sudah memproses kupon sebelumnya!";
       }
 
       let updateData = {
         status: "selesai",
-        waktu: new Date().toISOString()
+        nama: lastNama,
+        waktu_print: new Date().toISOString(),
+        items: komoditi
       };
 
+      // Tambahkan flag individual untuk tiap komoditi jika diperlukan
       komoditi.forEach(k => updateData[k] = true);
 
       transaction.set(ref, updateData, { merge: true });
     });
 
-    // PRINT
+    // PROSES CETAK
     const img = canvas.toDataURL();
-
     const win = window.open("", "_blank");
     win.document.write(`
       <html>
-      <body style="text-align:center;font-family:monospace;font-size:12px;width:280px;">
-        <h3>PASAR MURAH</h3>
+      <body style="text-align:center;font-family:Arial;font-size:12px;width:280px;margin:0 auto;padding:20px;">
+        <h2 style="margin:0">PASAR MURAH</h2>
+        <p>Bukti Pengambilan Subsidi</p>
         <hr>
-        <div><b>${lastNama}</b></div>
-        <img src="${img}" width="150">
+        <div style="font-size:16px;margin:10px 0;"><b>${lastNama}</b></div>
+        <img src="${img}" width="180">
+        <div style="text-align:left;margin-top:10px;">
+          <b>Daftar Komoditi:</b><br>
+          ${komoditi.map(k => `• ${k}`).join("<br>")}
+        </div>
         <hr>
-        ${komoditi.map(k => `<div>- ${k}</div>`).join("")}
-        <hr>
-        <div>Terima Kasih</div>
+        <p>Simpan struk ini sebagai bukti sah.<br>Terima Kasih</p>
         <script>
           window.onload = function(){
             window.print();
@@ -275,20 +265,24 @@ window.printQR = async function() {
       </body>
       </html>
     `);
-
     win.document.close();
 
-    select.value = "";
+    // Reset Form Setelah Berhasil
+    resetForm();
+    alert("Berhasil! Nama telah dihapus dari daftar aktif.");
 
   } catch (e) {
-    if (e === "SUDAH") {
-      alert("❌ Sudah Menerima (Tidak bisa cetak ulang)");
-    } else {
-      alert("Error, coba lagi");
-      console.error(e);
-    }
+    alert("Gagal: " + e);
+    resetForm();
   }
 };
+
+function resetForm() {
+  select.value = "";
+  qrcodeDiv.innerHTML = "";
+  btnPrint.style.display = "none";
+  document.querySelectorAll("#komoditiList input").forEach(cb => cb.checked = false);
+}
 </script>
 
 </body>
