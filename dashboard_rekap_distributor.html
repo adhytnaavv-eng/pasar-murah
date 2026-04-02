@@ -7,12 +7,24 @@
 
 <h2>📊 Dashboard Distribusi</h2>
 
+<h3>Pilih Rentang Tanggal</h3>
+Dari: <input type="date" id="startDate">
+Sampai: <input type="date" id="endDate">
+
+<br><br>
+
+<button onclick="loadDistributorByDate()">🔍 Load Distributor</button>
+
+<br><br>
+
 <h3>Pilih Distributor</h3>
 <select id="distributorSelect">
   <option value="">-- Pilih Distributor --</option>
 </select>
 
 <br><br>
+
+<button onclick="tampilkanData()">📊 Tampilkan</button>
 
 <h3>Komoditi yang Disalurkan</h3>
 <ul id="hasil"></ul>
@@ -34,21 +46,36 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  let semuaData = [];
+  let filteredData = [];
 
-  // 🔥 LOAD SEMUA DATA DISTRIBUSI
-  async function loadData() {
+  // 🔥 LOAD DISTRIBUTOR BERDASARKAN TANGGAL
+  window.loadDistributorByDate = async function() {
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    if (!startDate || !endDate) {
+      alert("Pilih rentang tanggal dulu!");
+      return;
+    }
+
+    let start = new Date(startDate);
+    let end = new Date(endDate);
+    end.setHours(23,59,59,999);
+
     const snapshot = await getDocs(collection(db, "distribusi"));
 
     let distributorSet = new Set();
-
-    semuaData = [];
+    filteredData = [];
 
     snapshot.forEach(doc => {
       const data = doc.data();
-      semuaData.push(data);
 
-      distributorSet.add(data.distributor);
+      let waktu = data.waktu?.toDate ? data.waktu.toDate() : new Date(data.waktu);
+
+      if (waktu >= start && waktu <= end) {
+        filteredData.push(data);
+        distributorSet.add(data.distributor);
+      }
     });
 
     // isi dropdown distributor
@@ -61,21 +88,28 @@
       option.text = nama;
       select.appendChild(option);
     });
+
+    if (distributorSet.size === 0) {
+      alert("Tidak ada distributor di tanggal tersebut");
+    }
   }
 
-  // 🔥 FILTER SAAT DIPILIH
-  document.getElementById("distributorSelect").addEventListener("change", function() {
-    const selected = this.value;
+  // 🔥 TAMPILKAN DATA KOMODITI
+  window.tampilkanData = function() {
+    const selectedDistributor = document.getElementById("distributorSelect").value;
 
     const hasil = document.getElementById("hasil");
     hasil.innerHTML = "";
 
-    if (!selected) return;
+    if (!selectedDistributor) {
+      alert("Pilih distributor!");
+      return;
+    }
 
     let komoditiCount = {};
 
-    semuaData.forEach(data => {
-      if (data.distributor === selected) {
+    filteredData.forEach(data => {
+      if (data.distributor === selectedDistributor) {
 
         if (!komoditiCount[data.komoditi]) {
           komoditiCount[data.komoditi] = 0;
@@ -85,15 +119,18 @@
       }
     });
 
-    // tampilkan hasil
+    if (Object.keys(komoditiCount).length === 0) {
+      hasil.innerHTML = "<li>Tidak ada data</li>";
+      return;
+    }
+
     for (let item in komoditiCount) {
       const li = document.createElement("li");
       li.innerText = item + " : " + komoditiCount[item];
       hasil.appendChild(li);
     }
-  });
+  }
 
-  loadData();
 </script>
 
 </body>
