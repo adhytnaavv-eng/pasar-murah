@@ -8,6 +8,10 @@
 
 <h2>Scan QR (Petugas 3)</h2>
 
+<button onclick="startScan()">▶️ Mulai Scan</button>
+
+<br><br>
+
 <div id="reader" style="width:300px;"></div>
 
 <h3 id="info"></h3>
@@ -48,6 +52,7 @@
   let userId = "";
   let komoditiList = [];
   let selectedItem = "";
+  let scanner;
 
   function renderButtons(dataKupon) {
     const container = document.getElementById("komoditiButtons");
@@ -63,7 +68,7 @@
 
       btn.onclick = () => {
         selectedItem = item;
-        alert("Pilih: " + item);
+        alert("Dipilih: " + item);
       };
 
       container.appendChild(btn);
@@ -71,7 +76,17 @@
     });
   }
 
+  async function loadData() {
+    const snap = await getDoc(doc(db, "kupon", userId));
+
+    if (snap.exists()) {
+      renderButtons(snap.data());
+    }
+  }
+
   function onScanSuccess(decodedText) {
+    scanner.stop();
+
     const parts = decodedText.split("|");
     userId = parts[0];
     komoditiList = parts[1].split(",");
@@ -81,13 +96,36 @@
     loadData();
   }
 
-  async function loadData() {
-    const kuponRef = doc(db, "kupon", userId);
-    const snap = await getDoc(kuponRef);
+  // 🔥 START SCAN - AUTO PILIH KAMERA BELAKANG
+  window.startScan = function() {
+    scanner = new Html5Qrcode("reader");
 
-    if (snap.exists()) {
-      renderButtons(snap.data());
-    }
+    Html5Qrcode.getCameras()
+      .then(devices => {
+        if (devices.length > 0) {
+
+          // 🔥 PILIH KAMERA BELAKANG
+          let backCamera = devices.find(device =>
+            device.label.toLowerCase().includes("back") ||
+            device.label.toLowerCase().includes("rear")
+          );
+
+          let cameraId = backCamera ? backCamera.id : devices[0].id;
+
+          scanner.start(
+            cameraId,
+            { fps: 10, qrbox: 250 },
+            onScanSuccess
+          );
+
+        } else {
+          alert("Kamera tidak ditemukan");
+        }
+      })
+      .catch(err => {
+        alert("Izin kamera ditolak / error: " + err);
+        console.error(err);
+      });
   }
 
   window.simpan = async function() {
@@ -103,12 +141,10 @@
       return;
     }
 
-    // update kupon
     await updateDoc(doc(db, "kupon", userId), {
       [selectedItem]: true
     });
 
-    // simpan log distribusi
     await addDoc(collection(db, "distribusi"), {
       id_user: userId,
       komoditi: selectedItem,
@@ -116,20 +152,11 @@
       waktu: new Date()
     });
 
-    alert("Berhasil diserahkan: " + selectedItem);
+    alert("Berhasil: " + selectedItem);
 
     selectedItem = "";
-    loadData(); // refresh tombol
+    loadData();
   }
-
-  const html5QrCode = new Html5Qrcode("reader");
-  Html5Qrcode.getCameras().then(devices => {
-    html5QrCode.start(
-      devices[0].id,
-      { fps: 10, qrbox: 250 },
-      onScanSuccess
-    );
-  });
 </script>
 
 </body>
