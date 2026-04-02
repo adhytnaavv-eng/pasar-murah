@@ -10,7 +10,7 @@
         * { box-sizing: border-box; }
         body { 
             font-family: 'Poppins', sans-serif; 
-            background-color: #f0f2f5; 
+            background-color: #eef2f7; 
             margin: 0; 
             display: flex; 
             justify-content: center; 
@@ -22,88 +22,94 @@
             background: #ffffff; 
             width: 100%; 
             max-width: 400px; 
-            padding: 30px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
+            padding: 35px 25px; 
+            border-radius: 25px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
             text-align: center;
         }
-        h2 { color: #1a73e8; margin-bottom: 5px; font-weight: 600; }
-        p { color: #70757a; font-size: 14px; margin-bottom: 25px; }
+        h2 { color: #1a73e8; margin-bottom: 5px; }
+        p { color: #5f6368; font-size: 14px; margin-bottom: 30px; }
 
-        .input-group { text-align: left; margin-bottom: 15px; }
-        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #3c4043; }
+        .input-group { text-align: left; margin-bottom: 20px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #3c4043; }
         
-        input { 
+        input, select { 
             width: 100%; 
-            padding: 12px 15px; 
-            border: 1px solid #dadce0; 
-            border-radius: 10px; 
+            padding: 14px; 
+            border: 2px solid #e8eaed; 
+            border-radius: 12px; 
             font-size: 16px; 
             outline: none;
-            transition: border-color 0.3s;
+            transition: all 0.3s;
+            background-color: white;
         }
-        input:focus { border-color: #1a73e8; background-color: #f8fbff; }
+        input:focus, select:focus { border-color: #1a73e8; background-color: #f8fbff; }
+
+        .error-hint { color: #d93025; font-size: 11px; margin-top: 5px; display: none; font-weight: 600; }
 
         button { 
             width: 100%; 
             background-color: #1a73e8; 
             color: white; 
             border: none; 
-            padding: 15px; 
-            border-radius: 10px; 
+            padding: 16px; 
+            border-radius: 12px; 
             font-size: 16px; 
             font-weight: 600; 
             cursor: pointer; 
             margin-top: 10px;
-            transition: background 0.3s, transform 0.1s;
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
         }
-        button:active { transform: scale(0.98); background-color: #1557b0; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        button:active { transform: scale(0.97); }
+        button:disabled { background-color: #bdc1c6; box-shadow: none; }
 
-        #qr-container { 
-            margin-top: 25px; 
-            padding: 20px; 
-            background: #f8f9fa; 
-            border-radius: 15px; 
-            display: none; /* Sembunyi sebelum ada data */
+        .success-overlay {
+            color: #188038;
+            background: #e6f4ea;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+            font-weight: 600;
         }
-        #qrcode { display: flex; justify-content: center; margin-top: 10px; }
-        canvas { max-width: 100%; height: auto !important; border-radius: 8px; }
-        
-        .success-msg { color: #188038; font-size: 14px; margin-top: 10px; font-weight: 600; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Daftar Baru</h2>
-    <p>Silakan input data warga (Petugas 1)</p>
+    <h2>Registrasi Warga</h2>
+    <p>Input data penerima manfaat</p>
 
     <div class="input-group">
         <label>Nama Lengkap</label>
-        <input type="text" id="nama" placeholder="Contoh: Budi Santoso" autocomplete="off">
+        <input type="text" id="nama" placeholder="Sesuai KTP" autocomplete="off">
     </div>
 
     <div class="input-group">
-        <label>Nomor KK / NIK</label>
-        <input type="number" id="kk" placeholder="Input 16 digit nomor" autocomplete="off">
+        <label>NIK (16 Digit)</label>
+        <input type="text" id="kk" placeholder="16 digit angka" inputmode="numeric" maxlength="16" autocomplete="off">
+        <div id="errorNik" class="error-hint">⚠️ Format NIK tidak sesuai</div>
     </div>
 
-    <button id="btnSimpan" onclick="simpanData()">Simpan & Buat ID</button>
-    <div id="statusMsg" class="success-msg">✅ Registrasi Berhasil!</div>
-
-    <div id="qr-container">
-        <label>ID Registrasi Berhasil Dibuat:</label>
-        <div id="qrcode"></div>
-        <div id="idTeks" style="margin-top:10px; font-weight:bold; color:#1a73e8;"></div>
+    <div class="input-group">
+        <label>Lokasi Pelaksanaan</label>
+        <select id="lokasi">
+            <option value="">-- Pilih Lokasi --</option>
+            <option value="TIM 1">TIM 1r</option>
+            <option value="TIM 2">TIM 2</option>
+            <option value="TIM 3">TIM 3</option>
+            <option value="TIM 4">TIM 4</option>
+        </select>
     </div>
+
+    <button id="btnSimpan" onclick="simpanData()">Simpan Data</button>
+    
+    <div id="successMsg" class="success-overlay">✅ Data Berhasil Disimpan!</div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
@@ -120,70 +126,59 @@
     window.simpanData = async function() {
         const btn = document.getElementById("btnSimpan");
         const nama = document.getElementById("nama").value.trim();
-        const kk = document.getElementById("kk").value.trim();
+        const nik = document.getElementById("kk").value.trim();
+        const lokasi = document.getElementById("lokasi").value;
 
-        if (!nama || !kk) {
-            alert("Mohon isi nama dan nomor KK!");
+        // Reset Error
+        document.getElementById("errorNik").style.display = "none";
+
+        // Validasi NIK
+        const isNumeric = /^\d+$/.test(nik);
+        if (!isNumeric || nik.length !== 16) {
+            document.getElementById("errorNik").style.display = "block";
             return;
         }
 
-        // Kunci tombol agar tidak dobel klik
+        // Validasi Kelengkapan
+        if (!nama || !lokasi) {
+            alert("Nama dan Lokasi harus dipilih!");
+            return;
+        }
+
         btn.disabled = true;
-        btn.innerText = "Menyimpan...";
+        btn.innerText = "Memproses...";
 
         try {
-            // Gunakan ID unik yang rapi
-            const id = "PM-" + Math.random().toString(36).substr(2, 6).toUpperCase();
+            const docId = "ID-" + Date.now();
 
-            // 1. Simpan ke koleksi registrasi
-            await setDoc(doc(db, "registrasi", id), {
+            await setDoc(doc(db, "registrasi", docId), {
                 nama: nama,
-                kk: kk,
-                created_at: new Date()
+                nik: nik,
+                lokasi: lokasi,
+                created_at: serverTimestamp()
             });
 
-            // Note: Koleksi 'kupon' akan dibuat oleh Petugas 2 nanti, 
-            // Namun jika ingin disiapkan sekarang (kosong) juga boleh:
-            // await setDoc(doc(db, "kupon", id), { nama: nama, status_cetak: false });
-
-            // Tampilkan QR
-            const qrContainer = document.getElementById("qr-container");
-            const qrDiv = document.getElementById("qrcode");
-            const idTeks = document.getElementById("idTeks");
+            document.getElementById("successMsg").style.display = "block";
             
-            qrDiv.innerHTML = ""; 
-            idTeks.innerText = id;
-
-            // Generate QR (Data QR: ID|Nama) agar Petugas 2 mudah scan
-            const qrData = id + "|" + nama;
-
-            QRCode.toCanvas(qrData, { 
-                width: 180, 
-                margin: 2,
-                color: { dark: "#1a73e8", light: "#ffffff" } 
-            }, function (error, canvas) {
-                if (error) console.error(error);
-                qrDiv.appendChild(canvas);
-                qrContainer.style.display = "block";
-            });
-
-            // Feedback sukses
-            document.getElementById("statusMsg").style.display = "block";
-            
-            // Reset form input saja
+            // Reset form
             document.getElementById("nama").value = "";
             document.getElementById("kk").value = "";
+            document.getElementById("lokasi").value = "";
             
-            alert("Berhasil Terdaftar!\nID: " + id);
+            setTimeout(() => { document.getElementById("successMsg").style.display = "none"; }, 3000);
 
         } catch (error) {
-            alert("Gagal: " + error.message);
-            console.error(error);
+            alert("Terjadi kesalahan: " + error.message);
         } finally {
             btn.disabled = false;
-            btn.innerText = "Simpan & Buat ID";
+            btn.innerText = "Simpan Data";
         }
     }
+
+    // Hanya angka untuk NIK
+    document.getElementById("kk").addEventListener("input", function(e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
 </script>
 
 </body>
