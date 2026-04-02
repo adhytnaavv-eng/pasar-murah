@@ -44,7 +44,7 @@
     }
 
     input[type="checkbox"] {
-      transform: scale(1.5);
+      transform: scale(1.4);
       margin-right: 10px;
     }
 
@@ -62,9 +62,9 @@
 <h2>📦 Petugas Komoditi</h2>
 
 <div class="card">
-  <label>Nama Penerima</label>
+  <label>Nama</label>
   <select id="userSelect">
-    <option value="">-- Pilih Nama --</option>
+    <option value="">-- Pilih --</option>
   </select>
 </div>
 
@@ -89,72 +89,86 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { 
+import {
   getFirestore, collection, onSnapshot,
   doc, setDoc, getDoc, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "pasar-murah-kk.firebaseapp.com",
-  projectId: "pasar-murah-kk"
+  apiKey: "ISI_PUNYA_KAMU",
+  authDomain: "ISI",
+  projectId: "ISI"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// ===== STATE =====
+let userList = [];
+let kuponStatus = {};
 let lastQR = "";
 let lastNama = "";
-let userStatus = {};
-let userMap = {};
 
+// ===== ELEMENT =====
 const select = document.getElementById("userSelect");
 
-// 🔥 REALTIME USER
-onSnapshot(collection(db, "registrasi"), async (snapshot) => {
+// ===== REALTIME USER =====
+onSnapshot(collection(db, "registrasi"), (snapshot) => {
+  userList = [];
+  snapshot.forEach(docSnap => {
+    userList.push({
+      id: docSnap.id,
+      nama: docSnap.data().nama
+    });
+  });
+  renderUser();
+});
 
-  select.innerHTML = '<option value="">-- Pilih Nama --</option>';
+// ===== REALTIME KUPON (INI KUNCI FIX) =====
+onSnapshot(collection(db, "kupon"), (snapshot) => {
+  kuponStatus = {};
 
-  for (const docSnap of snapshot.docs) {
-    const id = docSnap.id;
-    const nama = docSnap.data().nama;
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    kuponStatus[docSnap.id] = data.status === "selesai";
+  });
 
-    userMap[id] = nama;
+  renderUser();
+});
 
-    const kuponSnap = await getDoc(doc(db, "kupon", id));
-    let sudah = false;
+// ===== RENDER USER =====
+function renderUser() {
+  select.innerHTML = '<option value="">-- Pilih --</option>';
 
-    if (kuponSnap.exists()) {
-      sudah = kuponSnap.data().status === "selesai";
-    }
-
-    userStatus[id] = sudah;
-
+  userList.forEach(user => {
     const option = document.createElement("option");
-    option.value = id;
-    option.text = nama;
+    option.value = user.id;
+
+    const sudah = kuponStatus[user.id];
+
+    option.text = user.nama;
 
     if (sudah) {
       option.text += " (SUDAH)";
-      option.classList.add("sudah");
       option.disabled = true;
+      option.classList.add("sudah");
     }
 
     select.appendChild(option);
-  }
-});
+  });
+}
 
-// 🔹 VALIDASI PILIH
+// ===== VALIDASI PILIH =====
 select.addEventListener("change", function() {
   const id = this.value;
 
-  if (userStatus[id]) {
+  if (kuponStatus[id]) {
     alert("Sudah Menerima Subsidi");
     this.value = "";
   }
 });
 
-// 🔹 LOAD KOMODITI
+// ===== LOAD KOMODITI =====
 onSnapshot(collection(db, "master_komoditi"), (snapshot) => {
   const container = document.getElementById("komoditiList");
   container.innerHTML = "";
@@ -174,19 +188,17 @@ onSnapshot(collection(db, "master_komoditi"), (snapshot) => {
   });
 });
 
-// 🔹 GENERATE QR
+// ===== GENERATE QR =====
 window.buatQR = async function() {
   const userId = select.value;
-
   if (!userId) return alert("Pilih user dulu!");
 
-  const kuponSnap = await getDoc(doc(db, "kupon", userId));
-  if (kuponSnap.exists() && kuponSnap.data().status === "selesai") {
-    return alert("User sudah menerima!");
+  if (kuponStatus[userId]) {
+    return alert("Sudah menerima!");
   }
 
-  const nama = userMap[userId];
-  lastNama = nama;
+  const user = userList.find(u => u.id === userId);
+  lastNama = user.nama;
 
   const checkboxes = document.querySelectorAll("#komoditiList input:checked");
   if (checkboxes.length === 0) return alert("Pilih komoditi!");
@@ -194,12 +206,12 @@ window.buatQR = async function() {
   let komoditi = [];
   checkboxes.forEach(cb => komoditi.push(cb.value));
 
-  let dataKupon = {};
-  komoditi.forEach(k => dataKupon[k] = false);
+  let dataAwal = {};
+  komoditi.forEach(k => dataAwal[k] = false);
 
-  await setDoc(doc(db, "kupon", userId), dataKupon, { merge: true });
+  await setDoc(doc(db, "kupon", userId), dataAwal, { merge: true });
 
-  lastQR = nama + "|" + komoditi.join(",");
+  lastQR = user.nama + "|" + komoditi.join(",");
 
   const qrDiv = document.getElementById("qrcode");
   qrDiv.innerHTML = "";
@@ -209,10 +221,9 @@ window.buatQR = async function() {
   });
 };
 
-// 🔒 PRINT + LOCK SERVER (ANTI DOBEL)
+// ===== PRINT + LOCK SERVER =====
 window.printQR = async function() {
   const canvas = document.querySelector("#qrcode canvas");
-
   if (!canvas) return alert("Generate QR dulu!");
 
   const userId = select.value;
@@ -222,15 +233,12 @@ window.printQR = async function() {
 
   try {
     await runTransaction(db, async (transaction) => {
-
       const ref = doc(db, "kupon", userId);
       const snap = await transaction.get(ref);
 
       if (snap.exists()) {
         const data = snap.data();
-        if (data.status === "selesai") {
-          throw "SUDAH";
-        }
+        if (data.status === "selesai") throw "SUDAH";
       }
 
       let updateData = {
@@ -243,19 +251,7 @@ window.printQR = async function() {
       transaction.set(ref, updateData, { merge: true });
     });
 
-    // update UI
-    userStatus[userId] = true;
-
-    const option = select.querySelector(`option[value="${userId}"]`);
-    if (option) {
-      option.text += " (SUDAH)";
-      option.classList.add("sudah");
-      option.disabled = true;
-    }
-
-    select.value = "";
-
-    // print
+    // PRINT
     const img = canvas.toDataURL();
 
     const win = window.open("", "_blank");
@@ -282,11 +278,13 @@ window.printQR = async function() {
 
     win.document.close();
 
+    select.value = "";
+
   } catch (e) {
     if (e === "SUDAH") {
-      alert("❌ Sudah Menerima Subsidi (Tidak bisa cetak ulang)");
+      alert("❌ Sudah Menerima (Tidak bisa cetak ulang)");
     } else {
-      alert("Terjadi error, coba lagi");
+      alert("Error, coba lagi");
       console.error(e);
     }
   }
