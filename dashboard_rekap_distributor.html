@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard Distribusi</title>
+</head>
+<body>
+
+<h2>📊 Dashboard Distribusi</h2>
+
+<h3>Pilih Distributor</h3>
+<select id="distributorSelect">
+  <option value="">-- Pilih Distributor --</option>
+</select>
+
+<br><br>
+
+<h3>Komoditi yang Disalurkan</h3>
+<ul id="hasil"></ul>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { 
+    getFirestore, 
+    collection, 
+    getDocs 
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
+    authDomain: "pasar-murah-kk.firebaseapp.com",
+    projectId: "pasar-murah-kk",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  let semuaData = [];
+
+  // 🔥 LOAD SEMUA DATA DISTRIBUSI
+  async function loadData() {
+    const snapshot = await getDocs(collection(db, "distribusi"));
+
+    let distributorSet = new Set();
+
+    semuaData = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      semuaData.push(data);
+
+      distributorSet.add(data.distributor);
+    });
+
+    // isi dropdown distributor
+    const select = document.getElementById("distributorSelect");
+    select.innerHTML = '<option value="">-- Pilih Distributor --</option>';
+
+    distributorSet.forEach(nama => {
+      const option = document.createElement("option");
+      option.value = nama;
+      option.text = nama;
+      select.appendChild(option);
+    });
+  }
+
+  // 🔥 FILTER SAAT DIPILIH
+  document.getElementById("distributorSelect").addEventListener("change", function() {
+    const selected = this.value;
+
+    const hasil = document.getElementById("hasil");
+    hasil.innerHTML = "";
+
+    if (!selected) return;
+
+    let komoditiCount = {};
+
+    semuaData.forEach(data => {
+      if (data.distributor === selected) {
+
+        if (!komoditiCount[data.komoditi]) {
+          komoditiCount[data.komoditi] = 0;
+        }
+
+        komoditiCount[data.komoditi]++;
+      }
+    });
+
+    // tampilkan hasil
+    for (let item in komoditiCount) {
+      const li = document.createElement("li");
+      li.innerText = item + " : " + komoditiCount[item];
+      hasil.appendChild(li);
+    }
+  });
+
+  loadData();
+</script>
+
+</body>
+</html>
