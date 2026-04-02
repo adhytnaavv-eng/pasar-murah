@@ -1,288 +1,204 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Petugas Komoditi - Pasar Murah</title>
+  <title>Petugas 2 - Komoditi</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-      padding: 15px;
-      max-width: 500px;
-      margin: auto;
-    }
-
-    h2 { text-align: center; color: #333; }
-
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 15px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    label { font-weight: bold; display: block; margin-bottom: 8px; color: #555; }
-
-    select, button {
-      width: 100%;
-      height: 50px;
-      font-size: 16px;
-      margin-top: 10px;
-      border-radius: 10px;
-      border: 1px solid #ddd;
-    }
-
-    button {
-      background: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-
-    button:active { transform: scale(0.98); }
-
-    .btn-print { background: #28a745; margin-top: 20px; }
-
-    .checkbox-item {
-      display: flex;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid #eee;
-    }
-
-    input[type="checkbox"] {
-      transform: scale(1.4);
-      margin-right: 15px;
-    }
-
-    #qrcode { 
-      display: flex;
-      justify-content: center;
-      padding: 10px;
-    }
-
-    #qrcode canvas {
-      max-width: 100%;
-      border: 1px solid #eee;
-    }
+    body { font-family: sans-serif; background: #f0f2f5; padding: 20px; max-width: 500px; margin: auto; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2 { text-align: center; color: #1a73e8; }
+    select, button { width: 100%; height: 45px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+    button { background: #1a73e8; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    button:hover { background: #1557b0; }
+    .btn-print { background: #34a853; display: none; margin-top: 15px; } /* Sembunyi sampai QR muncul */
+    #qrcode { display: flex; justify-content: center; margin-top: 15px; }
+    .komoditi-item { margin: 8px 0; display: flex; align-items: center; }
+    input[type="checkbox"] { transform: scale(1.2); margin-right: 10px; }
   </style>
 </head>
-
 <body>
 
-<h2>📦 Petugas Komoditi</h2>
-
 <div class="card">
-  <label>Pilih Nama Penerima</label>
+  <h2>📋 Petugas 2</h2>
+  
+  <label><b>Pilih Nama Penerima:</b></label>
   <select id="userSelect">
-    <option value="">-- Memuat Data... --</option>
+    <option value="">-- Memuat Nama... --</option>
   </select>
-</div>
 
-<div class="card">
-  <label>Daftar Komoditi</label>
+  <br><br>
+
+  <label><b>Pilih Komoditi:</b></label>
   <div id="komoditiList"></div>
+
+  <button onclick="buatQR()">🎯 Generate QR Code</button>
 </div>
 
-<div class="card">
-  <button onclick="buatQR()">🎯 Generate QR Code</button>
+<div class="card" id="qrSection" style="display:none;">
+  <h3>Preview QR Code:</h3>
   <div id="qrcode"></div>
-  <button id="btnPrint" class="btn-print" onclick="printQR()" style="display: none;">🖨️ Print & Konfirmasi</button>
+  <button class="btn-print" id="btnPrint" onclick="cetakDanSelesaikan()">🖨️ Print & Selesaikan</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getFirestore, collection, onSnapshot,
-  doc, setDoc, runTransaction
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { 
+    getFirestore, collection, onSnapshot, doc, setDoc, getDocs 
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// GANTI DENGAN KONFIGURASI FIREBASE ANDA
-const firebaseConfig = {
-  apiKey: "ISI_PUNYA_KAMU",
-  authDomain: "ISI",
-  projectId: "ISI"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
+    authDomain: "pasar-murah-kk.firebaseapp.com",
+    projectId: "pasar-murah-kk",
+    storageBucket: "pasar-murah-kk.firebasestorage.app",
+    messagingSenderId: "964431531376",
+    appId: "1:964431531376:web:c6b30579b3a41fb91293b5"
+  };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-// ===== STATE =====
-let userList = [];
-let kuponStatus = {};
-let lastQR = "";
-let lastNama = "";
+  let dataRegistrasi = [];
+  let dataKuponSelesai = new Set();
+  let selectedNama = "";
 
-const select = document.getElementById("userSelect");
-const btnPrint = document.getElementById("btnPrint");
-const qrcodeDiv = document.getElementById("qrcode");
-
-// ===== REALTIME USER DATA =====
-onSnapshot(collection(db, "registrasi"), (snapshot) => {
-  userList = [];
-  snapshot.forEach(docSnap => {
-    userList.push({
-      id: docSnap.id,
-      nama: docSnap.data().nama
+  // --- 1. MONITOR DATA SECARA REAL-TIME ---
+  // Kita pantau koleksi 'registrasi' (semua nama) AND 'kupon' (yang sudah diproses)
+  function startListening() {
+    // Pantau yang sudah ambil kupon
+    onSnapshot(collection(db, "kupon"), (snapshot) => {
+      dataKuponSelesai.clear();
+      snapshot.forEach(doc => dataKuponSelesai.add(doc.id));
+      renderDropdown(); // Update list setiap ada yang selesai
     });
-  });
-  renderUser();
-});
 
-// ===== REALTIME KUPON STATUS =====
-onSnapshot(collection(db, "kupon"), (snapshot) => {
-  kuponStatus = {};
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-    // Jika status "selesai", simpan sebagai true
-    kuponStatus[docSnap.id] = data.status === "selesai";
-  });
-  renderUser(); // Re-render setiap kali ada perubahan status
-});
-
-// ===== RENDER USER (FILTERING LOGIC) =====
-function renderUser() {
-  const currentValue = select.value;
-  select.innerHTML = '<option value="">-- Pilih Nama --</option>';
-
-  userList.forEach(user => {
-    const sudahSelesai = kuponStatus[user.id] || false;
-
-    // KUNCI: Hanya tambahkan ke list jika status BELUM "selesai"
-    if (!sudahSelesai) {
-      const option = document.createElement("option");
-      option.value = user.id;
-      option.text = user.nama;
-      select.appendChild(option);
-    }
-  });
-  
-  // Jika nama yang terpilih tiba-tiba hilang (karena diupdate user lain), reset pilihan
-  if (currentValue && !userList.find(u => u.id === currentValue)) {
-      resetForm();
+    // Pantau daftar registrasi
+    onSnapshot(collection(db, "registrasi"), (snapshot) => {
+      dataRegistrasi = [];
+      snapshot.forEach(doc => {
+        dataRegistrasi.push({ id: doc.id, nama: doc.data().nama });
+      });
+      renderDropdown();
+    });
   }
-}
 
-// ===== LOAD MASTER KOMODITI =====
-onSnapshot(collection(db, "master_komoditi"), (snapshot) => {
-  const container = document.getElementById("komoditiList");
-  container.innerHTML = "";
-  snapshot.forEach(docSnap => {
-    const nama = docSnap.data().nama;
-    const div = document.createElement("div");
-    div.className = "checkbox-item";
-    div.innerHTML = `<input type="checkbox" value="${nama}"> <label>${nama}</label>`;
-    container.appendChild(div);
-  });
-});
+  // --- 2. RENDER DROPDOWN (Hanya yang BELUM ada di koleksi kupon) ---
+  function renderDropdown() {
+    const select = document.getElementById("userSelect");
+    select.innerHTML = '<option value="">-- Pilih Nama --</option>';
 
-// ===== GENERATE QR =====
-window.buatQR = function() {
-  const userId = select.value;
-  if (!userId) return alert("Silakan pilih nama terlebih dahulu!");
-
-  const checkboxes = document.querySelectorAll("#komoditiList input:checked");
-  if (checkboxes.length === 0) return alert("Pilih minimal satu komoditi!");
-
-  const user = userList.find(u => u.id === userId);
-  lastNama = user.nama;
-
-  let komoditi = [];
-  checkboxes.forEach(cb => komoditi.push(cb.value));
-
-  // Format data QR: ID|Nama|Komoditi1,Komoditi2
-  lastQR = `${userId}|${lastNama}|${komoditi.join(",")}`;
-
-  qrcodeDiv.innerHTML = "";
-  QRCode.toCanvas(lastQR, { width: 220, margin: 2 }, function (err, canvas) {
-    if (err) console.error(err);
-    qrcodeDiv.appendChild(canvas);
-    btnPrint.style.display = "block"; // Munculkan tombol print
-  });
-};
-
-// ===== PRINT & UPDATE DATABASE (LOCK) =====
-window.printQR = async function() {
-  const canvas = document.querySelector("#qrcode canvas");
-  if (!canvas) return;
-
-  const userId = select.value;
-  const parts = lastQR.split("|");
-  const komoditi = parts[2].split(",");
-
-  try {
-    // Gunakan Transaction untuk memastikan tidak ada double input di saat bersamaan
-    await runTransaction(db, async (transaction) => {
-      const ref = doc(db, "kupon", userId);
-      const snap = await transaction.get(ref);
-
-      if (snap.exists() && snap.data().status === "selesai") {
-        throw "Penerima ini sudah memproses kupon sebelumnya!";
+    dataRegistrasi.forEach(user => {
+      // JIKA ID user belum ada di koleksi kupon, tampilkan di dropdown
+      if (!dataKuponSelesai.has(user.id)) {
+        const option = document.createElement("option");
+        option.value = user.id;
+        option.text = user.nama;
+        select.appendChild(option);
       }
-
-      let updateData = {
-        status: "selesai",
-        nama: lastNama,
-        waktu_print: new Date().toISOString(),
-        items: komoditi
-      };
-
-      // Tambahkan flag individual untuk tiap komoditi jika diperlukan
-      komoditi.forEach(k => updateData[k] = true);
-
-      transaction.set(ref, updateData, { merge: true });
     });
-
-    // PROSES CETAK
-    const img = canvas.toDataURL();
-    const win = window.open("", "_blank");
-    win.document.write(`
-      <html>
-      <body style="text-align:center;font-family:Arial;font-size:12px;width:280px;margin:0 auto;padding:20px;">
-        <h2 style="margin:0">PASAR MURAH</h2>
-        <p>Bukti Pengambilan Subsidi</p>
-        <hr>
-        <div style="font-size:16px;margin:10px 0;"><b>${lastNama}</b></div>
-        <img src="${img}" width="180">
-        <div style="text-align:left;margin-top:10px;">
-          <b>Daftar Komoditi:</b><br>
-          ${komoditi.map(k => `• ${k}`).join("<br>")}
-        </div>
-        <hr>
-        <p>Simpan struk ini sebagai bukti sah.<br>Terima Kasih</p>
-        <script>
-          window.onload = function(){
-            window.print();
-            setTimeout(()=>window.close(),500);
-          }
-        <\/script>
-      </body>
-      </html>
-    `);
-    win.document.close();
-
-    // Reset Form Setelah Berhasil
-    resetForm();
-    alert("Berhasil! Nama telah dihapus dari daftar aktif.");
-
-  } catch (e) {
-    alert("Gagal: " + e);
-    resetForm();
   }
-};
 
-function resetForm() {
-  select.value = "";
-  qrcodeDiv.innerHTML = "";
-  btnPrint.style.display = "none";
-  document.querySelectorAll("#komoditiList input").forEach(cb => cb.checked = false);
-}
+  // --- 3. LOAD KOMODITI ---
+  async function loadKomoditi() {
+    const snapshot = await getDocs(collection(db, "master_komoditi"));
+    const container = document.getElementById("komoditiList");
+    snapshot.forEach(docSnap => {
+      const nama = docSnap.data().nama;
+      const div = document.createElement("div");
+      div.className = "komoditi-item";
+      div.innerHTML = `<input type="checkbox" value="${nama}"> <label>${nama}</label>`;
+      container.appendChild(div);
+    });
+  }
+
+  // --- 4. GENERATE QR (Hanya Preview) ---
+  window.buatQR = function() {
+    const userId = document.getElementById("userSelect").value;
+    const selectEl = document.getElementById("userSelect");
+    selectedNama = selectEl.options[selectEl.selectedIndex].text;
+
+    const checkboxes = document.querySelectorAll("#komoditiList input:checked");
+    if (!userId) return alert("Pilih nama dulu!");
+    if (checkboxes.length === 0) return alert("Pilih komoditi!");
+
+    let komoditi = [];
+    checkboxes.forEach(cb => komoditi.push(cb.value));
+
+    // Isi data QR
+    const qrData = userId + "|" + selectedNama + "|" + komoditi.join(",");
+
+    const qrDiv = document.getElementById("qrcode");
+    qrDiv.innerHTML = "";
+
+    QRCode.toCanvas(qrData, { width: 200 }, function (error, canvas) {
+      if (error) return console.error(error);
+      qrDiv.appendChild(canvas);
+      document.getElementById("qrSection").style.display = "block";
+      document.getElementById("btnPrint").style.display = "block";
+    });
+  };
+
+  // --- 5. PRINT & SELESAIKAN (Update Firebase agar Nama Hilang) ---
+  window.cetakDanSelesaikan = async function() {
+    const userId = document.getElementById("userSelect").value;
+    const checkboxes = document.querySelectorAll("#komoditiList input:checked");
+    const canvas = document.querySelector("#qrcode canvas");
+
+    if (!canvas) return;
+
+    let komoditi = [];
+    checkboxes.forEach(cb => komoditi.push(cb.value));
+
+    // 🔹 SIMPAN KE DATABASE (Ini yang membuat nama hilang dari daftar)
+    let dataKupon = {
+      nama: selectedNama,
+      waktu_generate: new Date().toISOString(),
+      status_cetak: true
+    };
+    komoditi.forEach(k => dataKupon[k] = false); // Status awal distribusi false
+
+    try {
+      await setDoc(doc(db, "kupon", userId), dataKupon, { merge: true });
+
+      // 🔹 PROSES PRINT
+      const imgData = canvas.toDataURL("image/png");
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <body style="text-align:center;font-family:sans-serif;">
+            <h2>KUPON PASAR MURAH</h2>
+            <hr>
+            <h3>${selectedNama}</h3>
+            <img src="${imgData}" />
+            <p>Daftar Komoditi:<br><b>${komoditi.join(", ")}</b></p>
+            <script>
+              window.onload = function() { window.print(); window.close(); };
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+
+      // Reset tampilan
+      alert("Print berhasil! Nama " + selectedNama + " telah dinonaktifkan.");
+      resetForm();
+
+    } catch (e) {
+      alert("Gagal menyimpan: " + e);
+    }
+  };
+
+  function resetForm() {
+    document.getElementById("qrSection").style.display = "none";
+    document.getElementById("userSelect").value = "";
+    document.querySelectorAll("#komoditiList input").forEach(cb => cb.checked = false);
+  }
+
+  // Jalankan fungsi awal
+  startListening();
+  loadKomoditi();
 </script>
 
 </body>
