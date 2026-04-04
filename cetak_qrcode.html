@@ -14,7 +14,118 @@
         select, button { width: 100%; height: 50px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; margin-bottom: 10px; }
         
         /* Style Dropdown */
-        option.terpakai { color: #d93025 !important; font-weight: bold; background-color: #fce8e6; }
+        option.terpakai { color: #d93025 !important; font-weig<!DOCTYPE html>
+
+<html>
+<head>
+  <title>Petugas 2 - Komoditi</title>
+</head>
+<body>
+
+<h2>Petugas 2 - Pilih Komoditi</h2>
+
+<label>Nama:</label><br> <select id="userSelect"></select>
+
+<br><br>
+
+<label>Komoditi:</label>
+
+<div id="komoditiList"></div>
+
+<br>
+
+<button onclick="buatQR()">Generate QR</button>
+
+<h3>QR Code:</h3>
+<div id="qrcode"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
+    authDomain: "pasar-murah-kk.firebaseapp.com",
+    projectId: "pasar-murah-kk",
+    storageBucket: "pasar-murah-kk.firebasestorage.app",
+    messagingSenderId: "964431531376",
+    appId: "1:964431531376:web:c6b30579b3a41fb91293b5"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 🔹 LOAD DATA USER
+  async function loadUser() {
+    const snapshot = await getDocs(collection(db, "registrasi"));
+    const select = document.getElementById("userSelect");
+
+    snapshot.forEach(docSnap => {
+      const option = document.createElement("option");
+      option.value = docSnap.id;
+      option.text = docSnap.data().nama;
+      select.appendChild(option);
+    });
+  }
+
+  // 🔹 LOAD KOMODITI DINAMIS
+  async function loadKomoditi() {
+    const snapshot = await getDocs(collection(db, "master_komoditi"));
+    const container = document.getElementById("komoditiList");
+
+    snapshot.forEach(docSnap => {
+      const nama = docSnap.data().nama;
+
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${nama}"> ${nama}`;
+      container.appendChild(label);
+      container.appendChild(document.createElement("br"));
+    });
+  }
+
+  loadUser();
+  loadKomoditi();
+
+  // 🔥 GENERATE QR
+  window.buatQR = async function() {
+    const userId = document.getElementById("userSelect").value;
+
+    const checkboxes = document.querySelectorAll("#komoditiList input:checked");
+
+    if (checkboxes.length === 0) {
+      alert("Pilih komoditi dulu!");
+      return;
+    }
+
+    let komoditi = [];
+    checkboxes.forEach(cb => komoditi.push(cb.value));
+
+    // 🔹 Simpan ke database
+    let dataKupon = {};
+    komoditi.forEach(k => dataKupon[k] = false);
+
+    await setDoc(doc(db, "kupon", userId), dataKupon, { merge: true });
+
+    // 🔹 Isi QR
+    const qrData = userId + "|" + komoditi.join(",");
+
+    const qrDiv = document.getElementById("qrcode");
+    qrDiv.innerHTML = "";
+
+    QRCode.toCanvas(qrData, { width: 200 }, function (error, canvas) {
+      if (error) console.error(error);
+      qrDiv.appendChild(canvas);
+    });
+
+    alert("QR berhasil dibuat!");
+  }
+</script>
+
+</body>
+</html>
+ht: bold; background-color: #fce8e6; }
         option.tersedia { color: #188038 !important; }
 
         .komoditi-box { background: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
