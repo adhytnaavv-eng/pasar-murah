@@ -178,7 +178,7 @@
       return;
     }
 
-    const qrText = id + "|" + selectedKomoditi.join(",");
+    const qrText = id;
 
     QRCode.toCanvas(qrText, function (err, canvas) {
       const div = document.getElementById("qrcode");
