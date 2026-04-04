@@ -2,46 +2,106 @@
 
 <html>
 <head>
-  <title>Scan Distribusi</title>
+  <title>Petugas 3 - Scan Distribusi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f8;
+      padding: 15px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      margin-top: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      border-radius: 10px;
+      border: none;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    .btn-scan {
+      background: #007bff;
+      color: white;
+    }
+
+    .komoditi-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .komoditi-btn {
+      background: #28a745;
+      color: white;
+    }
+
+    .disabled {
+      background: #ccc !important;
+    }
+
+    .selected {
+      background: #ff9800 !important;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    #reader {
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+
 </head>
+
 <body>
 
-<h2>Scan QR (Petugas 3)</h2>
+<h2>📦 Scan Distribusi</h2>
 
-<button onclick="startScan()">▶️ Mulai Scan</button>
+<div class="card">
+  <button class="btn-scan" onclick="startScan()">▶️ Mulai Scan</button>
+  <div id="reader"></div>
+</div>
 
-<br><br>
+<div class="card">
+  <h3 id="nama">Belum scan</h3>
+</div>
 
-<div id="reader" style="width:300px;"></div>
+<div class="card">
+  <h3>🛒 Pilih Komoditi</h3>
+  <div id="komoditiList" class="komoditi-container"></div>
+</div>
 
-<h3 id="info"></h3>
-
-<h4>Pilih Komoditi:</h4>
-<div id="komoditiButtons"></div>
-
-<br>
-
-<h4>Pilih Distributor:</h4>
-<select id="distributor">
-  <option value="">Pilih Distributor</option>
-</select>
-
-<br><br>
-
-<button onclick="simpan()">Simpan</button>
+<div class="card">
+  <h3>🏢 Pilih Distributor</h3>
+  <select id="distributor"></select>
+</div>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { 
-    getFirestore, 
-    doc, 
-    getDoc, 
-    updateDoc, 
-    addDoc, 
-    collection, 
-    getDocs 
+    getFirestore, doc, getDoc, updateDoc, addDoc, collection, getDocs 
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -57,110 +117,101 @@
   const db = getFirestore(app);
 
   let userId = "";
-  let komoditiList = [];
   let selectedItem = "";
   let scanner;
 
-  // 🔥 LOAD DISTRIBUTOR DINAMIS
+  // 🔥 LOAD DISTRIBUTOR
   async function loadDistributor() {
     const snapshot = await getDocs(collection(db, "master_distributor"));
     const select = document.getElementById("distributor");
 
-    select.innerHTML = '<option value="">Pilih Distributor</option>';
-
     snapshot.forEach(docSnap => {
-      const nama = docSnap.data().nama;
-
-      const option = document.createElement("option");
-      option.value = nama;
-      option.text = nama;
-
-      select.appendChild(option);
+      const opt = document.createElement("option");
+      opt.value = docSnap.data().nama;
+      opt.text = docSnap.data().nama;
+      select.appendChild(opt);
     });
   }
 
   loadDistributor();
 
-  // 🔥 TAMPILKAN TOMBOL KOMODITI
-  function renderButtons(dataKupon) {
-    const container = document.getElementById("komoditiButtons");
-    container.innerHTML = "";
-
-    komoditiList.forEach(item => {
-      const btn = document.createElement("button");
-      btn.innerText = item;
-
-      if (dataKupon[item] === true) {
-        btn.disabled = true;
-      }
-
-      btn.onclick = () => {
-        selectedItem = item;
-        alert("Dipilih: " + item);
-      };
-
-      container.appendChild(btn);
-      container.appendChild(document.createElement("br"));
-    });
-  }
-
-  // 🔥 LOAD STATUS KUpon
-  async function loadData() {
-    const snap = await getDoc(doc(db, "kupon", userId));
-
-    if (snap.exists()) {
-      renderButtons(snap.data());
-    }
-  }
-
-  // 🔥 HASIL SCAN
-  function onScanSuccess(decodedText) {
-    scanner.stop();
-
-    const parts = decodedText.split("|");
-    userId = parts[0];
-    komoditiList = parts[1].split(",");
-
-    document.getElementById("info").innerText = "ID: " + userId;
-
-    loadData();
-  }
-
-  // 🔥 START SCAN (KAMERA BELAKANG)
+  // 🔥 START SCAN
   window.startScan = function() {
     scanner = new Html5Qrcode("reader");
 
-    Html5Qrcode.getCameras()
-      .then(devices => {
-        if (devices.length > 0) {
+    Html5Qrcode.getCameras().then(devices => {
+      let back = devices.find(d =>
+        d.label.toLowerCase().includes("back") ||
+        d.label.toLowerCase().includes("rear")
+      );
 
-          let backCamera = devices.find(device =>
-            device.label.toLowerCase().includes("back") ||
-            device.label.toLowerCase().includes("rear")
-          );
+      let cameraId = back ? back.id : devices[0].id;
 
-          let cameraId = backCamera ? backCamera.id : devices[0].id;
+      scanner.start(
+        cameraId,
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      );
+    });
+  }
 
-          scanner.start(
-            cameraId,
-            { fps: 10, qrbox: 250 },
-            onScanSuccess
-          );
+  // 🔥 HASIL SCAN
+  async function onScanSuccess(decodedText) {
+    await scanner.stop();
 
-        } else {
-          alert("Kamera tidak ditemukan");
-        }
-      })
-      .catch(err => {
-        alert("Izin kamera ditolak / error: " + err);
-        console.error(err);
-      });
+    userId = decodedText;
+
+    // ambil nama
+    const regSnap = await getDoc(doc(db, "registrasi", userId));
+    if (regSnap.exists()) {
+      document.getElementById("nama").innerText =
+        "👤 " + regSnap.data().nama;
+    }
+
+    // ambil komoditi dari kupon
+    const kuponSnap = await getDoc(doc(db, "kupon", userId));
+    renderKomoditi(kuponSnap.data());
+  }
+
+  // 🔥 RENDER KOMODITI
+  function renderKomoditi(data) {
+    const container = document.getElementById("komoditiList");
+    container.innerHTML = "";
+
+    Object.keys(data).forEach(key => {
+      if (key === "status_cetak") return;
+
+      const btn = document.createElement("button");
+      btn.className = "komoditi-btn";
+
+      const label = key.replaceAll("_", " ");
+      btn.innerText = label.toUpperCase();
+
+      if (data[key] === true) {
+        btn.disabled = true;
+        btn.classList.add("disabled");
+      }
+
+      btn.onclick = () => {
+        if (btn.disabled) return;
+
+        selectedItem = key;
+
+        document.querySelectorAll(".komoditi-btn").forEach(b => {
+          if (!b.disabled) b.classList.remove("selected");
+        });
+
+        btn.classList.add("selected");
+      };
+
+      container.appendChild(btn);
+    });
   }
 
   // 🔥 SIMPAN DISTRIBUSI
   window.simpan = async function() {
     if (!selectedItem) {
-      alert("Pilih komoditi dulu!");
+      alert("Pilih komoditi!");
       return;
     }
 
@@ -171,12 +222,10 @@
       return;
     }
 
-    // update status kupon
     await updateDoc(doc(db, "kupon", userId), {
       [selectedItem]: true
     });
 
-    // simpan log distribusi
     await addDoc(collection(db, "distribusi"), {
       id_user: userId,
       komoditi: selectedItem,
@@ -184,12 +233,21 @@
       waktu: new Date()
     });
 
-    alert("Berhasil diserahkan: " + selectedItem);
+    alert("✅ Berhasil: " + selectedItem);
 
     selectedItem = "";
-    loadData(); // refresh tombol
+
+    // reload data realtime
+    const kuponSnap = await getDoc(doc(db, "kupon", userId));
+    renderKomoditi(kuponSnap.data());
   }
 </script>
+
+<div class="card">
+  <button onclick="simpan()" style="background:#ff9800;color:white;">
+    💾 Simpan Distribusi
+  </button>
+</div>
 
 </body>
 </html>
