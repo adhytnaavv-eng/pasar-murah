@@ -180,6 +180,20 @@
 
     const qrText = id;
 
+const displayText = id + " | " + selectedKomoditi.join(", ");
+
+QRCode.toCanvas(qrText, function (err, canvas) {
+  const div = document.getElementById("qrcode");
+  div.innerHTML = "";
+
+  div.appendChild(canvas);
+
+  const info = document.createElement("p");
+  info.innerText = displayText;
+
+  div.appendChild(info);
+});
+
     QRCode.toCanvas(qrText, function (err, canvas) {
       const div = document.getElementById("qrcode");
       div.innerHTML = "";
