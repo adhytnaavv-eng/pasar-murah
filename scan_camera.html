@@ -140,28 +140,43 @@
 
   loadDistributor();
 
-  function renderButtons(dataKupon) {
-    const container = document.getElementById("komoditiButtons");
-    container.innerHTML = "";
+function renderButtons(dataKupon) {
+const container = document.getElementById("komoditiButtons");
+container.innerHTML = "";
 
-    komoditiList.forEach(item => {
-      const btn = document.createElement("button");
-      btn.innerText = item;
-      btn.className = "komoditi-btn";
+komoditiList.forEach(item => {
+const btn = document.createElement("button");
+btn.innerText = item;
+btn.className = "komoditi-btn";
 
-      if (dataKupon[item] === true) {
-        btn.disabled = true;
-        btn.classList.add("disabled");
-      }
+```
+// 🔥 FIX: cek true saja
+if (dataKupon[item] === true) {
+  btn.disabled = true;
+  btn.classList.add("disabled");
+}
 
-      btn.onclick = () => {
-        selectedItem = item;
-        alert("Dipilih: " + item);
-      };
+// 🔥 FIX: event klik
+btn.addEventListener("click", function() {
+  selectedItem = item;
 
-      container.appendChild(btn);
-    });
-  }
+  // reset warna semua tombol
+  document.querySelectorAll(".komoditi-btn").forEach(b => {
+    b.style.background = "#28a745";
+  });
+
+  // tandai yang dipilih
+  this.style.background = "#ff9800";
+
+  document.getElementById("info").innerText =
+    "ID: " + userId + " | Pilih: " + item;
+});
+
+container.appendChild(btn);
+```
+
+});
+}
 
   async function loadData() {
     const snap = await getDoc(doc(db, "kupon", userId));
