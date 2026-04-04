@@ -38,6 +38,11 @@
       color: white;
     }
 
+    .btn-save {
+      background: #ff9800;
+      color: white;
+    }
+
     .komoditi-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -96,6 +101,10 @@
   <select id="distributor"></select>
 </div>
 
+<div class="card">
+  <button class="btn-save" onclick="simpan()">💾 Simpan</button>
+</div>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <script type="module">
@@ -117,7 +126,7 @@
   const db = getFirestore(app);
 
   let userId = "";
-  let selectedItem = "";
+  let selectedItems = [];
   let scanner;
 
   // 🔥 LOAD DISTRIBUTOR
@@ -160,6 +169,7 @@
     await scanner.stop();
 
     userId = decodedText;
+    selectedItems = [];
 
     // ambil nama
     const regSnap = await getDoc(doc(db, "registrasi", userId));
@@ -168,7 +178,7 @@
         "👤 " + regSnap.data().nama;
     }
 
-    // ambil komoditi dari kupon
+    // ambil komoditi
     const kuponSnap = await getDoc(doc(db, "kupon", userId));
     renderKomoditi(kuponSnap.data());
   }
@@ -195,23 +205,23 @@
       btn.onclick = () => {
         if (btn.disabled) return;
 
-        selectedItem = key;
-
-        document.querySelectorAll(".komoditi-btn").forEach(b => {
-          if (!b.disabled) b.classList.remove("selected");
-        });
-
-        btn.classList.add("selected");
+        if (selectedItems.includes(key)) {
+          selectedItems = selectedItems.filter(i => i !== key);
+          btn.classList.remove("selected");
+        } else {
+          selectedItems.push(key);
+          btn.classList.add("selected");
+        }
       };
 
       container.appendChild(btn);
     });
   }
 
-  // 🔥 SIMPAN DISTRIBUSI
+  // 🔥 SIMPAN
   window.simpan = async function() {
-    if (!selectedItem) {
-      alert("Pilih komoditi!");
+    if (selectedItems.length === 0) {
+      alert("Pilih minimal 1 komoditi!");
       return;
     }
 
@@ -222,32 +232,30 @@
       return;
     }
 
-    await updateDoc(doc(db, "kupon", userId), {
-      [selectedItem]: true
-    });
+    for (let item of selectedItems) {
 
-    await addDoc(collection(db, "distribusi"), {
-      id_user: userId,
-      komoditi: selectedItem,
-      distributor: distributor,
-      waktu: new Date()
-    });
+      await updateDoc(doc(db, "kupon", userId), {
+        [item]: true
+      });
 
-    alert("✅ Berhasil: " + selectedItem);
+      await addDoc(collection(db, "distribusi"), {
+        id_user: userId,
+        komoditi: item,
+        distributor: distributor,
+        waktu: new Date()
+      });
 
-    selectedItem = "";
+    }
 
-    // reload data realtime
+    alert("✅ Berhasil simpan " + selectedItems.length + " komoditi");
+
+    selectedItems = [];
+
+    // reload realtime
     const kuponSnap = await getDoc(doc(db, "kupon", userId));
     renderKomoditi(kuponSnap.data());
   }
 </script>
-
-<div class="card">
-  <button onclick="simpan()" style="background:#ff9800;color:white;">
-    💾 Simpan Distribusi
-  </button>
-</div>
 
 </body>
 </html>
