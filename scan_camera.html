@@ -184,39 +184,46 @@
   }
 
   // 🔥 RENDER KOMODITI
-  function renderKomoditi(data) {
-    const container = document.getElementById("komoditiList");
-    container.innerHTML = "";
+ function renderKomoditi(data) {
+const container = document.getElementById("komoditiList");
+container.innerHTML = "";
 
-    Object.keys(data).forEach(key => {
-      if (key === "status_cetak") return;
+Object.keys(data).forEach(key => {
 
-      const btn = document.createElement("button");
-      btn.className = "komoditi-btn";
+```
+// 🔥 FILTER: hanya boolean komoditi
+if (key === "status_cetak") return;
+if (typeof data[key] !== "boolean") return;
 
-      const label = key.replaceAll("_", " ");
-      btn.innerText = label.toUpperCase();
+const btn = document.createElement("button");
+btn.className = "komoditi-btn";
 
-      if (data[key] === true) {
-        btn.disabled = true;
-        btn.classList.add("disabled");
-      }
+const label = key.replaceAll("_", " ");
+btn.innerText = label.toUpperCase();
 
-      btn.onclick = () => {
-        if (btn.disabled) return;
+if (data[key] === true) {
+  btn.disabled = true;
+  btn.classList.add("disabled");
+}
 
-        if (selectedItems.includes(key)) {
-          selectedItems = selectedItems.filter(i => i !== key);
-          btn.classList.remove("selected");
-        } else {
-          selectedItems.push(key);
-          btn.classList.add("selected");
-        }
-      };
+btn.onclick = () => {
+  if (btn.disabled) return;
 
-      container.appendChild(btn);
-    });
+  if (selectedItems.includes(key)) {
+    selectedItems = selectedItems.filter(i => i !== key);
+    btn.classList.remove("selected");
+  } else {
+    selectedItems.push(key);
+    btn.classList.add("selected");
   }
+};
+
+container.appendChild(btn);
+```
+
+});
+}
+
 
   // 🔥 SIMPAN
   window.simpan = async function() {
