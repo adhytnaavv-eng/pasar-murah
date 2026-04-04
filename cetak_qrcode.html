@@ -44,10 +44,9 @@
       font-size: 16px;
     }
 
-    .btn-primary {
-      background: #007bff;
-      color: white;
-    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-save { background: #28a745; color: white; }
+    .btn-print { background: #ff9800; color: white; }
 
     .komoditi-container {
       display: grid;
@@ -63,11 +62,6 @@
 
     .selected {
       background: #ff9800 !important;
-    }
-
-    img {
-      width: 100%;
-      margin-top: 10px;
     }
   </style>
 
@@ -89,8 +83,16 @@
 
 <div class="card">
   <button class="btn-primary" onclick="generateQR()">🎯 Generate QR</button>
+
   <div id="qrcode"></div>
-  <button onclick="cetak()">🖨 Cetak</button>
+
+  <button id="btnSave" class="btn-save" onclick="simpan()" disabled>
+    💾 Simpan Data
+  </button>
+
+  <button id="btnPrint" class="btn-print" onclick="cetak()" disabled>
+    🖨 Cetak
+  </button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
@@ -114,8 +116,9 @@
   const db = getFirestore(app);
 
   let selectedKomoditi = [];
+  let qrReady = false;
 
-  // 🔥 LOAD DATA WARGA
+  // LOAD USER
   async function loadUser() {
     const snapshot = await getDocs(collection(db, "registrasi"));
     const select = document.getElementById("userSelect");
@@ -127,7 +130,6 @@
       opt.value = docSnap.id;
       opt.text = data.nama;
 
-      // 🔴 kalau sudah cetak
       if (data.status_cetak === true) {
         opt.disabled = true;
         opt.style.color = "red";
@@ -138,7 +140,7 @@
     });
   }
 
-  // 🔥 LOAD KOMODITI
+  // LOAD KOMODITI
   async function loadKomoditi() {
     const snapshot = await getDocs(collection(db, "master_komoditi"));
     const container = document.getElementById("komoditiList");
@@ -169,7 +171,7 @@
   loadUser();
   loadKomoditi();
 
-  // 🔥 GENERATE QR
+  // GENERATE QR
   window.generateQR = function() {
     const id = document.getElementById("userSelect").value;
 
@@ -178,37 +180,19 @@
       return;
     }
 
-    const qrText = id;
-
-const displayText = id + " | " + selectedKomoditi.join(", ");
-
-QRCode.toCanvas(qrText, function (err, canvas) {
-  const div = document.getElementById("qrcode");
-  div.innerHTML = "";
-
-  div.appendChild(canvas);
-
-  const info = document.createElement("p");
-  info.innerText = displayText;
-
-  div.appendChild(info);
-});
-
-    QRCode.toCanvas(qrText, function (err, canvas) {
+    QRCode.toCanvas(id, function (err, canvas) {
       const div = document.getElementById("qrcode");
       div.innerHTML = "";
       div.appendChild(canvas);
     });
+
+    qrReady = true;
+    document.getElementById("btnSave").disabled = false;
   }
 
-  // 🔥 CETAK + SIMPAN
-  window.cetak = async function() {
+  // SIMPAN DATA
+  window.simpan = async function() {
     const id = document.getElementById("userSelect").value;
-
-    if (!id || selectedKomoditi.length === 0) {
-      alert("Data belum lengkap!");
-      return;
-    }
 
     let dataKupon = {};
 
@@ -221,14 +205,23 @@ QRCode.toCanvas(qrText, function (err, canvas) {
       status_cetak: true
     });
 
-    // tandai registrasi sudah cetak
     await setDoc(doc(db, "registrasi", id), {
       status_cetak: true
     }, { merge: true });
 
-    alert("QR siap & tidak bisa dipilih ulang!");
+    alert("✅ Data berhasil disimpan");
 
-    location.reload();
+    document.getElementById("btnPrint").disabled = false;
+  }
+
+  // CETAK
+  window.cetak = function() {
+    if (!qrReady) {
+      alert("Generate QR dulu!");
+      return;
+    }
+
+    window.print();
   }
 </script>
 
