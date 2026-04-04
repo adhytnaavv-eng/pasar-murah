@@ -3,103 +3,46 @@
 <html>
 <head>
   <title>Scan Distribusi</title>
-
-  <!-- 🔥 WAJIB untuk HP -->
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <style>
-    body {
-      font-family: Arial;
-      background: #f4f6f8;
-      padding: 15px;
-    }
-
-    h2 {
-      text-align: center;
-    }
-
-    input {
-      width: 100%;
-      padding: 15px;
-      font-size: 16px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      margin-bottom: 10px;
-    }
-
-    button {
-      width: 100%;
-      padding: 15px;
-      font-size: 16px;
-      border-radius: 10px;
-      border: none;
-      margin-top: 10px;
-      background: #28a745;
-      color: white;
-    }
-
-    button:disabled {
-      background: #ccc;
-    }
-
-    select {
-      width: 100%;
-      padding: 12px;
-      border-radius: 10px;
-      margin-top: 10px;
-      font-size: 16px;
-    }
-
-    /* 🔥 BIKIN TOMBOL KOMODITI GRID */
-    #btn_beras, #btn_minyak, #btn_telur {
-      width: 32%;
-      display: inline-block;
-    }
-
-    /* 🔥 CARD STYLE */
-    .card {
-      background: white;
-      padding: 15px;
-      border-radius: 12px;
-      margin-top: 15px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-  </style>
-
 </head>
-
 <body>
 
-<h2>📦 Scan QR</h2>
+<h2>Scan QR (Petugas 3)</h2>
 
-<div class="card">
-  <input type="text" id="scanInput" placeholder="Tempel / Scan QR">
-  <button onclick="ambilData()">🔍 Ambil Data</button>
-</div>
+<button onclick="startScan()">▶️ Mulai Scan</button>
 
-<div class="card">
-  <h3 id="nama">Belum ada data</h3>
-</div>
+<br><br>
 
-<div class="card">
-  <h3>🛒 Pilih Komoditi</h3>
-  <button onclick="ambil('beras')" id="btn_beras">Beras</button>
-  <button onclick="ambil('minyak')" id="btn_minyak">Minyak</button>
-  <button onclick="ambil('telur')" id="btn_telur">Telur</button>
-</div>
+<div id="reader" style="width:300px;"></div>
 
-<div class="card">
-  <h3>🏢 Distributor</h3>
-  <select id="distributor">
-    <option>Gudang A</option>
-    <option>Gudang B</option>
-  </select>
-</div>
+<h3 id="info"></h3>
+
+<h4>Pilih Komoditi:</h4>
+<div id="komoditiButtons"></div>
+
+<br>
+
+<h4>Pilih Distributor:</h4>
+<select id="distributor">
+  <option value="">Pilih Distributor</option>
+</select>
+
+<br><br>
+
+<button onclick="simpan()">Simpan</button>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, getDoc, updateDoc, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { 
+    getFirestore, 
+    doc, 
+    getDoc, 
+    updateDoc, 
+    addDoc, 
+    collection, 
+    getDocs 
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDhp4jf51PB0t8Auh9S3FGFiAgJ7CJnDYs",
@@ -113,49 +56,138 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  let currentId = "";
+  let userId = "";
+  let komoditiList = [];
+  let selectedItem = "";
+  let scanner;
 
-  window.ambilData = async function() {
-    const id = document.getElementById("scanInput").value;
-    currentId = id;
+  // 🔥 LOAD DISTRIBUTOR DINAMIS
+  async function loadDistributor() {
+    const snapshot = await getDocs(collection(db, "master_distributor"));
+    const select = document.getElementById("distributor");
 
-    const docRef = doc(db, "registrasi", id);
-    const docSnap = await getDoc(docRef);
+    select.innerHTML = '<option value="">Pilih Distributor</option>';
 
-    if (docSnap.exists()) {
-      document.getElementById("nama").innerText = "👤 " + docSnap.data().nama;
+    snapshot.forEach(docSnap => {
+      const nama = docSnap.data().nama;
 
-      const kuponRef = doc(db, "kupon", id);
-      const kuponSnap = await getDoc(kuponRef);
-      const data = kuponSnap.data();
+      const option = document.createElement("option");
+      option.value = nama;
+      option.text = nama;
 
-      if (data.beras) document.getElementById("btn_beras").disabled = true;
-      if (data.minyak) document.getElementById("btn_minyak").disabled = true;
-      if (data.telur) document.getElementById("btn_telur").disabled = true;
+      select.appendChild(option);
+    });
+  }
 
-    } else {
-      alert("Data tidak ditemukan!");
+  loadDistributor();
+
+  // 🔥 TAMPILKAN TOMBOL KOMODITI
+  function renderButtons(dataKupon) {
+    const container = document.getElementById("komoditiButtons");
+    container.innerHTML = "";
+
+    komoditiList.forEach(item => {
+      const btn = document.createElement("button");
+      btn.innerText = item;
+
+      if (dataKupon[item] === true) {
+        btn.disabled = true;
+      }
+
+      btn.onclick = () => {
+        selectedItem = item;
+        alert("Dipilih: " + item);
+      };
+
+      container.appendChild(btn);
+      container.appendChild(document.createElement("br"));
+    });
+  }
+
+  // 🔥 LOAD STATUS KUpon
+  async function loadData() {
+    const snap = await getDoc(doc(db, "kupon", userId));
+
+    if (snap.exists()) {
+      renderButtons(snap.data());
     }
   }
 
-  window.ambil = async function(item) {
+  // 🔥 HASIL SCAN
+  function onScanSuccess(decodedText) {
+    scanner.stop();
+
+    const parts = decodedText.split("|");
+    userId = parts[0];
+    komoditiList = parts[1].split(",");
+
+    document.getElementById("info").innerText = "ID: " + userId;
+
+    loadData();
+  }
+
+  // 🔥 START SCAN (KAMERA BELAKANG)
+  window.startScan = function() {
+    scanner = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras()
+      .then(devices => {
+        if (devices.length > 0) {
+
+          let backCamera = devices.find(device =>
+            device.label.toLowerCase().includes("back") ||
+            device.label.toLowerCase().includes("rear")
+          );
+
+          let cameraId = backCamera ? backCamera.id : devices[0].id;
+
+          scanner.start(
+            cameraId,
+            { fps: 10, qrbox: 250 },
+            onScanSuccess
+          );
+
+        } else {
+          alert("Kamera tidak ditemukan");
+        }
+      })
+      .catch(err => {
+        alert("Izin kamera ditolak / error: " + err);
+        console.error(err);
+      });
+  }
+
+  // 🔥 SIMPAN DISTRIBUSI
+  window.simpan = async function() {
+    if (!selectedItem) {
+      alert("Pilih komoditi dulu!");
+      return;
+    }
+
     const distributor = document.getElementById("distributor").value;
 
-    const kuponRef = doc(db, "kupon", currentId);
-    await updateDoc(kuponRef, {
-      [item]: true
+    if (!distributor) {
+      alert("Pilih distributor!");
+      return;
+    }
+
+    // update status kupon
+    await updateDoc(doc(db, "kupon", userId), {
+      [selectedItem]: true
     });
 
+    // simpan log distribusi
     await addDoc(collection(db, "distribusi"), {
-      id_user: currentId,
-      komoditi: item,
+      id_user: userId,
+      komoditi: selectedItem,
       distributor: distributor,
       waktu: new Date()
     });
 
-    alert(item + " berhasil diserahkan");
+    alert("Berhasil diserahkan: " + selectedItem);
 
-    location.reload();
+    selectedItem = "";
+    loadData(); // refresh tombol
   }
 </script>
 
